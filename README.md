@@ -88,7 +88,7 @@ ___
 
 <a id="compactbinary-class"></a>
 ### 2️⃣ CompactBinary Class
-The core class of the package. Each object represents a single binary system, managing its physical properties, orbital evolution, and data storage.
+The core class of the package. Each object represents a single binary system, managing its physical properties, orbital evolution, waveform generation, and data storage.
 
 #### `LISAeccentric.CompactBinary()`
 To create a binary system object:
