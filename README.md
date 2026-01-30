@@ -16,7 +16,7 @@
 * 🌠 [**Galactic Field**](#32-galactic-field-field): Fly-by–induced mergers in Milky Way–like and elliptical galaxies
     * *Based on:* Michaely & Perets (2019) [ApJL 887 L36]; Raveh et al. (2022) [MNRAS 514.4246R]; Michaely & Naoz (2022) [ApJ 936 184]; Xuan et al. (2024a) [ApJ 965 148]
 
-> **Note:** Each module above provides methods to **sample merger eccentricities** and **generate population snapshots**. The snapshot functions return a list of [**`CompactBinary` objects**](#2-compactbinary-class), ready for immediate waveform generation and evolution.
+> **Note:** Each module above provides methods to **sample merger eccentricities** and **generate population snapshots**. The snapshot functions return a list of [**`CompactBinary`**](#compactbinary-class) objects, ready for immediate waveform generation and evolution.
 
 ### 🛠 Waveform & Signal Analysis
 
@@ -86,7 +86,11 @@ LISAeccentric.set_output_control(verbose=False, show_warnings=False)
 
 ___
 
+___
+
+<a id="compactbinary-class"></a>
 ### 2️⃣ CompactBinary Class
+The fundamental building block of the package. Instances of this class (**Objects**) encapsulate the physical parameters, orbital evolution, and I/O methods for a single binary system.
 The fundamental building block of the package. Instances of this class (**Objects**) encapsulate the physical parameters, orbital evolution, and I/O methods for a single binary system.
 
 #### `LISAeccentric.CompactBinary()`
