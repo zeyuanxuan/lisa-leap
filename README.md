@@ -6,6 +6,7 @@
 **LISAeccentric** is a Python toolkit for generating eccentric compact binary populations and computing their gravitational wave signals in the LISA band. It supports population synthesis, waveform computation, and signal analysis, including:
 
 ### 📂 BBH Population Catalogs
+> **Note:** Each module provides methods such as **sample merger eccentricities** and **generate population snapshots**. The snapshot functions return a list of [**`CompactBinary`**](#compactbinary-class) objects, ready for immediate waveform generation and evolution.
 
 * 🌌 [**Galactic Nuclei (GN)**](#31-galactic-nuclei-gn): SMBH-perturbed mergers (steady-state & starburst)
     * *Based on:* Hoang et al. (2018) [ApJ 856 140]; Xuan et al. (2024a) [ApJ 965 148]; Stephan et al. (2019) [ApJ 878 58]
@@ -16,7 +17,6 @@
 * 🌠 [**Galactic Field**](#32-galactic-field-field): Fly-by–induced mergers in Milky Way–like and elliptical galaxies
     * *Based on:* Michaely & Perets (2019) [ApJL 887 L36]; Raveh et al. (2022) [MNRAS 514.4246R]; Michaely & Naoz (2022) [ApJ 936 184]; Xuan et al. (2024a) [ApJ 965 148]
 
-> **Note:** Each module above provides methods such as **sample merger eccentricities** and **generate population snapshots**. The snapshot functions return a list of [**`CompactBinary`**](#compactbinary-class) objects, ready for immediate waveform generation and evolution.
 
 ### 🛠 Waveform & Signal Analysis
 
