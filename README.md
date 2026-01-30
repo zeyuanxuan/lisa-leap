@@ -18,11 +18,13 @@
 
 ### 🛠 Waveform & Signal Analysis
 
-* [Generate PN-based, time-domain waveforms for eccentric binaries (3PN, non-spinning).](#compute_waveform) [PhysRevD.82.024033]
-* [Evolve orbital parameters throughout the inspiral stage.](#evolve_orbit) [PhysRev.136.B1224]
-* [Compute the LISA detector response for a single Michelson signal.](#lisaeccentricwaveformcompute_lisa_response) [PhysRevD.67.022001]
-* [Evaluate characteristic strain ($h_c$) and stochastic backgrounds.](#compute_characteristic_strain) [PhysRevD.110.023020]
-* [Calculate signal-to-noise ratio (SNR) and noise-weighted inner products for time-domain waveforms.](#compute_snr_analytical)
+Calculations can be performed using the high-level **`CompactBinary` class** or by **directly inputting parameters** into the functional interface:
+
+* Generate PN-based, time-domain waveforms for eccentric binaries (via [**Class Object**](#compute_waveform) or [**Direct Input**](#lisaeccentricwaveformcompute_waveform)). [PhysRevD.82.024033]
+* Evolve orbital parameters throughout the inspiral stage (via [**Class Object**](#evolve_orbit) or [**Direct Input**](#lisaeccentricwaveformevolve_orbit)). [PhysRev.136.B1224]
+* Compute the LISA detector response for a single Michelson signal (via [**Direct Input**](#lisaeccentricwaveformcompute_lisa_response)). [PhysRevD.67.022001]
+* Evaluate characteristic strain ($h_c$) and stochastic backgrounds (via [**Class Object**](#compute_characteristic_strain) or [**Direct Input**](#lisaeccentricwaveformcompute_characteristic_strain_single)). [PhysRevD.110.023020]
+* Calculate signal-to-noise ratio (SNR) and noise-weighted inner products (via [**Class Object**](#compute_snr_analytical) or [**Direct Input**](#lisaeccentricwaveformcompute_snr_analytical)).
 
 ---
 
