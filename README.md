@@ -16,7 +16,7 @@
 * 🌠 [**Galactic Field**](#32-galactic-field-field): Fly-by–induced mergers in Milky Way–like and elliptical galaxies
     * *Based on:* Michaely & Perets (2019) [ApJL 887 L36]; Raveh et al. (2022) [MNRAS 514.4246R]; Michaely & Naoz (2022) [ApJ 936 184]; Xuan et al. (2024a) [ApJ 965 148]
 
-> **Note:** Each module above provides methods to **sample merger eccentricities** and **generate population snapshots**. The snapshot functions return a list of [**`CompactBinary`**](#compactbinary-class) objects, ready for immediate waveform generation and evolution.
+> **Note:** Each module above provides methods such as **sample merger eccentricities** and **generate population snapshots**. The snapshot functions return a list of [**`CompactBinary`**](#compactbinary-class) objects, ready for immediate waveform generation and evolution.
 
 ### 🛠 Waveform & Signal Analysis
 
@@ -86,15 +86,13 @@ LISAeccentric.set_output_control(verbose=False, show_warnings=False)
 
 ___
 
-___
-
 <a id="compactbinary-class"></a>
 ### 2️⃣ CompactBinary Class
-The fundamental building block of the package. Instances of this class (**Objects**) encapsulate the physical parameters, orbital evolution, and I/O methods for a single binary system.
-The fundamental building block of the package. Instances of this class (**Objects**) encapsulate the physical parameters, orbital evolution, and I/O methods for a single binary system.
+The core class of the package. Each object represents a single binary system, managing its physical properties, orbital evolution, and data storage.
 
 #### `LISAeccentric.CompactBinary()`
 To create a binary system object:
+
 * **Input**:
     * `m1`, `m2` (float): Masses. [m_sun]
     * `a` (float): Semi-major axis. [au]
@@ -126,6 +124,39 @@ print(f"   Inclination: {my_binary.extra['inclination']:.4f} rad")
   ```
 
 ___
+
+#### `.to_list()` `.from_list()`
+Methods to convert `CompactBinary` objects to and from list formats, facilitating data storage (e.g., to CSV/NumPy files) and retrieval.
+* **.to_list()**: 
+    * **Input**: `schema` (str) - formatting standard (default: snapshot_std, i.e., `['label', 'Dl', 'a', 'e', 'm1', 'm2', 'snr']`).
+    * **Output**: A list representing the system's data.
+* **.from_list()**: 
+    * **Input**: `data_list` (list) - raw data values; `schema` (str).
+    * **Output**: A new `CompactBinary` object instantiated from the list.
+
+**Example:**
+```python
+    # Export
+    print("   A. to_list(schema='snapshot_std')")
+    data_row = my_binary.to_list(schema='snapshot_std')
+    print(f"      Output: {data_row} (Type: List)")
+    # Import
+    print("   B. from_list(data_list=..., schema='snapshot_std')")
+    raw_in = ["Imp_Sys", 16.8, 0.5, 0.9, 50.0, 50.0, 0.0]
+    new_obj = LISAeccentric.CompactBinary.from_list(data_list=raw_in, schema='snapshot_std')
+    print(f"      Output: {new_obj}")
+  ```
+* **Output**:
+    ```
+    A. to_list(schema='snapshot_std')
+      Output: ['Tutorial_Core_Obj', 8.0, 0.26, 0.985, 10.0, 10.0, 0.0] (Type: List)
+   B. from_list(data_list=..., schema='snapshot_std')
+      Output: <CompactBinary [Imp_Sys]: M=50.0+50.0 m_sun, a=0.50AU, e=0.9000, Dl=16.8kpc, SNR=0.00>
+    ```
+
+___
+
+
 
 #### `.compute_merger_time()`
 Calculates the remaining time until the merger due to gravitational wave emission.
@@ -347,37 +378,6 @@ if evolve_res is not None:
 
 ___
 
-
-#### `.to_list()` `.from_list()`
-Methods to convert `CompactBinary` objects to and from list formats, facilitating data storage (e.g., to CSV/NumPy files) and retrieval.
-* **.to_list()**: 
-    * **Input**: `schema` (str) - formatting standard (default: snapshot_std, i.e., `['label', 'Dl', 'a', 'e', 'm1', 'm2', 'snr']`).
-    * **Output**: A list representing the system's data.
-* **.from_list()**: 
-    * **Input**: `data_list` (list) - raw data values; `schema` (str).
-    * **Output**: A new `CompactBinary` object instantiated from the list.
-
-**Example:**
-```python
-    # Export
-    print("   A. to_list(schema='snapshot_std')")
-    data_row = my_binary.to_list(schema='snapshot_std')
-    print(f"      Output: {data_row} (Type: List)")
-    # Import
-    print("   B. from_list(data_list=..., schema='snapshot_std')")
-    raw_in = ["Imp_Sys", 16.8, 0.5, 0.9, 50.0, 50.0, 0.0]
-    new_obj = LISAeccentric.CompactBinary.from_list(data_list=raw_in, schema='snapshot_std')
-    print(f"      Output: {new_obj}")
-  ```
-* **Output**:
-    ```
-    A. to_list(schema='snapshot_std')
-      Output: ['Tutorial_Core_Obj', 8.0, 0.26, 0.985, 10.0, 10.0, 0.0] (Type: List)
-   B. from_list(data_list=..., schema='snapshot_std')
-      Output: <CompactBinary [Imp_Sys]: M=50.0+50.0 m_sun, a=0.50AU, e=0.9000, Dl=16.8kpc, SNR=0.00>
-    ```
-
-___
 
 
 ### 3️⃣ Population analysis
