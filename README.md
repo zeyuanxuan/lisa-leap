@@ -7,6 +7,8 @@
 
 ### 📂 BBH Population Catalogs
 
+Each module provides methods to **sample merger eccentricities** and **generate population snapshots**. The snapshot functions return a list of [**`CompactBinary` objects**](#2-compactbinary-class), ready for immediate waveform generation and evolution.
+
 * 🌌 [**Galactic Nuclei (GN)**](#31-galactic-nuclei-gn): SMBH-perturbed mergers (steady-state & starburst)
     * *Based on:* Hoang et al. (2018) [ApJ 856 140]; Xuan et al. (2024a) [ApJ 965 148]; Stephan et al. (2019) [ApJ 878 58]
 
@@ -85,7 +87,7 @@ LISAeccentric.set_output_control(verbose=False, show_warnings=False)
 ___
 
 ### 2️⃣ CompactBinary Class
-The fundamental unit of the package. This class handles the physics, evolution, and I/O for a single binary system.
+The fundamental building block of the package. Instances of this class (**Objects**) encapsulate the physical parameters, orbital evolution, and I/O methods for a single binary system.
 
 #### `LISAeccentric.CompactBinary()`
 To create a binary system object:
