@@ -20,7 +20,7 @@
 
 ### 🛠 Waveform & Signal Analysis
 
-Calculations can be performed using the high-level **`CompactBinary` class** or by **directly inputting parameters** into the functional interface:
+> **Note:** Perform calculations via high-level **`CompactBinary` objects**, **OR** input parameters directly into the **Functional API**:
 
 * Generate PN-based, time-domain waveforms for eccentric binaries (via [**Class Object**](#compute_waveform) or [**Direct Input**](#lisaeccentricwaveformcompute_waveform)). [PhysRevD.82.024033]
 * Evolve orbital parameters throughout the inspiral stage (via [**Class Object**](#evolve_orbit) or [**Direct Input**](#lisaeccentricwaveformevolve_orbit)). [PhysRev.136.B1224]
