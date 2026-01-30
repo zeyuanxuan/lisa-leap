@@ -373,7 +373,7 @@ ___
 
 
 ### 3️⃣ Population analysis
-#### 3.1 Galactic Nuclei (GN)
+### 3.1 Galactic Nuclei (GN)
 This module models Binary Black Holes formed dynamically in the Milky Way galactic nuclei (due to the perturbation of the central supermassive black hole). It is based on detailed three-body simulations.
 
 ___
