@@ -811,12 +811,13 @@ After generation, it is crucial to verify the data structure, calculate the samp
 <p align="left">
 <img src="./images/egwaveform1.png" width="500">
 </p>
-Computes the Time-Delay Interferometry (TDI) response (specifically the $X$ channel or equivalent michelson response) for the LISA constellation. This function projects the $h_+$ and $h_\times$ polarizations onto the detector arms, accounting for the antenna pattern and time delays.
 
 ___
 
 
 #### `LISAeccentric.Waveform.compute_LISA_response()`
+Computes the Time-Delay Interferometry (TDI) response (specifically the $X$ channel or equivalent michelson response) for the LISA constellation. This function projects the $h_+$ and $h_\times$ polarizations onto the detector arms, accounting for the antenna pattern and time delays.
+
 * **Input**:
     * `dt_sample_sec` (float): Sampling interval of the input waveform [s].
     * `hplus`, `hcross` (NumPy Arrays): The input waveform polarizations.
