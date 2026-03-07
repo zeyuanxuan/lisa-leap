@@ -642,7 +642,7 @@ class _MW_Field_BBH_Engine:
             print("Error: No systems generated.")
 
     def save_data(self):
-        np.save(self.pop_file, self.systemlist)
+        np.save(self.pop_file, self.systemlist)#syslist没有包含质量
         # [修改点] 将 m1, m2, mp 等物理参数也存入 meta 文件
         meta_data = {
             'totalrate': self.totalrate,
@@ -717,7 +717,7 @@ class _MW_Field_BBH_Engine:
                 dl / 1000 / pc,
                 a_curr / AU,
                 e_curr,
-                10.0, 10.0,
+                self.m1/m_sun, self.m2/m_sun,
                 snr
             ])
 
