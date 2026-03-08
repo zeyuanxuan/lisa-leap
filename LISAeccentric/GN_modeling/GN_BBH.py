@@ -752,7 +752,30 @@ class _GNBBHInternalManager:
 
                 dt = current_age - t_last
                 if dt > 0:
-                    a_curr, e_curr = solve_ae_after_time(m1, m2, a_last, e_last, dt)
+                    # ====================================================
+                    # [FIXED: Unit Inconsistency & Safety Check]
+                    # ====================================================
+                    # Convert to Geometric Units (Seconds) for evolution functions
+                    m1_sec = m1 * m_sun_sec
+                    m2_sec = m2 * m_sun_sec
+                    a_last_sec = a_last * AU_sec
+                    dt_sec = dt * year_sec
+
+                    # Safety Check: Merger Time
+                    t_rem_sec = tmerger_integral(m1_sec, m2_sec, a_last_sec, e_last)
+
+                    if dt_sec >= t_rem_sec:
+                        return None  # System merged
+
+                    try:
+                        # Evolve using SECONDS
+                        # solve_ae_after_time returns (a_new_sec, e_new)
+                        a_new_sec, e_curr = solve_ae_after_time(m1_sec, m2_sec, a_last_sec, e_last, dt_sec)
+                        # Convert back to AU
+                        a_curr = a_new_sec / AU_sec
+                    except:
+                        a_curr, e_curr = a_last, e_last
+
                     i_curr = i_last  # Assume constant inclination during GW decay
                 else:
                     a_curr, e_curr = a_last, e_last

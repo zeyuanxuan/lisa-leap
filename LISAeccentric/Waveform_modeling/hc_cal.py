@@ -15,11 +15,12 @@ import matplotlib.pyplot as plt
 from scipy.optimize import brentq
 import os
 from numba import njit, float64
-
+from scipy.interpolate import interp1d  # 必须引入这个库
 # --- Helper Functions for Precise Evolution (Peters 1964) ---
 from scipy.integrate import quad
 from scipy.interpolate import PchipInterpolator
-
+plt.rcParams['mathtext.fontset'] = 'cm'
+plt.rcParams['font.family'] = 'serif'
 # ==========================================
 # 1. 物理常数与核心数学/物理函数 (保持原样)
 # ==========================================
@@ -470,7 +471,7 @@ def plot_single_system_results(single_system_res, xlim=[1e-6, 1], ylim=[1e-23, 1
     plt.tight_layout()
     plt.show()
 
-def plot_simulation_results(simulation_result_list,xlim=[1e-6,1],ylim=[1e-24, 1e-15]):
+def plot_simulation_results0(simulation_result_list,xlim=[1e-6,1],ylim=[1e-24, 1e-15]):
     """
     接口3: 绘图
     输入: simulation_result_list
@@ -518,7 +519,96 @@ def plot_simulation_results(simulation_result_list,xlim=[1e-6,1],ylim=[1e-24, 1e
     plt.title("GW Source Population (Individual Spectra) and Background", fontsize=16)
     plt.show()
 
+def plot_simulation_results(simulation_result_list, xlim=[1e-6, 1], ylim=[5e-24, 5e-15]):
+    """
+    接口3: 绘图 (修改版：背景噪声线加粗 linewidth=4)
+    输入: simulation_result_list
+    """
+    # 解包
+    faxis = simulation_result_list[0]
+    Snf_tot = simulation_result_list[1]
+    all_fn_lists = simulation_result_list[2]
+    all_hcavg_lists = simulation_result_list[3]
+    all_hnc_lists = simulation_result_list[4]
 
+    hc_background = np.sqrt(faxis * Snf_tot)
+
+    # 保持原有的 S_n_lisa 调用
+    # 请确保 S_n_lisa 函数在外部已定义
+    sqrtfsnflist = np.sqrt(faxis * S_n_lisa(faxis))
+
+    fig3 = plt.figure(figsize=(7, 6), dpi=100)
+
+    # --- 字号调整：刻度字体变大 ---
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+
+    # 画 LISA 灵敏度曲线
+    plt.plot(faxis, sqrtfsnflist, label="LISA Noise", color='black', linewidth=2, zorder=10)
+
+    # 画每个系统的折线图
+    label_added = False
+
+    for fn_sys, hc_avg_sys in zip(all_fn_lists, all_hcavg_lists):
+        if len(fn_sys) > 1:  # 至少2个点才能画线
+            lbl = "Individual Systems" if not label_added else None
+
+            # --- 插值平滑处理逻辑 ---
+            x_raw = np.array(fn_sys)
+            y_raw = np.array(hc_avg_sys)
+            sort_idx = np.argsort(x_raw)
+            x_raw = x_raw[sort_idx]
+            y_raw = y_raw[sort_idx]
+
+            x_plot, y_plot = x_raw, y_raw  # 默认情况
+
+            if len(x_raw) >= 4:
+                try:
+                    x_log = np.log10(x_raw)
+                    y_log = np.log10(y_raw)
+                    f_interp = interp1d(x_log, y_log, kind='cubic')
+                    x_new_log = np.linspace(x_log.min(), x_log.max(), 100)
+                    x_plot = 10 ** x_new_log
+                    y_plot = 10 ** f_interp(x_new_log)
+                except:
+                    pass
+            elif len(x_raw) == 3:
+                try:
+                    x_log = np.log10(x_raw)
+                    y_log = np.log10(y_raw)
+                    f_interp = interp1d(x_log, y_log, kind='quadratic')
+                    x_new_log = np.linspace(x_log.min(), x_log.max(), 50)
+                    x_plot = 10 ** x_new_log
+                    y_plot = 10 ** f_interp(x_new_log)
+                except:
+                    pass
+            # --- 插值逻辑结束 ---
+
+            plt.plot(x_plot, y_plot, color='blue', alpha=0.3, linewidth=1, label=lbl)
+            label_added = True
+
+    # 画总背景噪声 (修改点：linewidth 改为 4)
+    plt.plot(faxis, hc_background, label=r"Total GW Background",# ($\sqrt{f S_n(f)_{\mathrm{tot}}}$)
+             color='red', linestyle='--', linewidth=4, zorder=10)
+
+    # --- 样式调整核心部分 ---
+
+    # 1. 使用 LaTeX 数学公式斜体，并大幅增加字号
+    plt.xlabel(r'$f\ [\mathrm{Hz}]$', fontsize=24)
+    plt.ylabel(r'$h_c$', fontsize=24)
+
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlim(xlim)
+    plt.ylim(ylim)
+
+    # 2. 图例移至右上角 (upper right)，并增大字号
+    plt.legend(loc='upper right', fontsize=16)
+
+    plt.grid(True, which="both", ls="--", alpha=0.2)
+    # plt.title("GW Source Population (Individual Spectra) and Background", fontsize=18) # 保持你注释掉的状态
+    plt.tight_layout()
+    plt.show()
 # ==========================================
 # 5. Precise Orbit Evolution & Spectral History
 # ==========================================
