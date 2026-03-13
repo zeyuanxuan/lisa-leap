@@ -612,9 +612,10 @@ class LISAeccentric:
                 print(f"[GN Util] f_peak = {f_peak:.4e} Hz (a={a_au:.2f} AU, e={e:.4f})")
                 return f_peak
 
-    # ==========================================================================
-    # MODULE 2: Globular Clusters (GC)
-    # ==========================================================================
+            # ==========================================================================
+            # MODULE 2: Globular Clusters (GC)
+            # ==========================================================================
+
     class _GC_Handler:
         @mute_if_global_verbose_false
         def sample_eccentricities(self, n=5000, channel_name='Incluster', plot=True):
@@ -626,18 +627,19 @@ class LISAeccentric:
             return e_samples
 
         @mute_if_global_verbose_false
-        def get_snapshot(self, mode='10_realizations', n_random=500, plot=True) -> List[CompactBinary]:
-            """Feature 2: Get BBH parameters from GC snapshots."""
-            print(f"\n[GC] Getting Snapshot (Mode: {mode})...")
+        def get_snapshot(self, mode='10_realizations', channel='all', n_random=500, plot=True) -> List[CompactBinary]:
+            """Feature 2: Get BBH parameters from GC snapshots.
+            channel options: 'all', 'incluster', 'ejected'."""
+            print(f"\n[GC] Getting Snapshot (Mode: {mode}, Channel: {channel})...")
             if mode == '10_realizations':
-                raw_data = GC_BBH.get_full_10_realizations()
-                title = "BBHs in MW GCs (10 Realizations)"
+                raw_data = GC_BBH.get_full_10_realizations(channel=channel)
+                title = f"BBHs in MW GCs (10 Realizations, Channel: {channel})"
             elif mode == 'single':
-                raw_data = GC_BBH.get_single_mw_realization()
-                title = "Single MW Realization"
+                raw_data = GC_BBH.get_single_mw_realization(channel=channel)
+                title = f"Single MW Realization (Channel: {channel})"
             elif mode == 'random':
-                raw_data = GC_BBH.get_random_systems(n_random)
-                title = f"Randomly Selected {n_random} Systems"
+                raw_data = GC_BBH.get_random_systems(n_random, channel=channel)
+                title = f"Randomly Selected {n_random} Systems (Channel: {channel})"
             else:
                 raise ValueError("Mode must be '10_realizations', 'single', or 'random'.")
 

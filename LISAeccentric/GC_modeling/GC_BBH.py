@@ -12,11 +12,13 @@ import os
 
 
 class _GCBBHInternalManager:
-    def __init__(self, ecc_name="GC_10Hz_eccentricity.csv", pop_name="Mock_GC_BBHs.csv"):
+    def __init__(self, ecc_name="GC_10Hz_eccentricity.csv", pop_incluster_name="Mock_GC_BBHs.csv",
+                 pop_ejected_name="Mock_GC_BBHs_ejected.csv"):
 
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.ecc_file = os.path.join(current_dir, "data", ecc_name)
-        self.pop_file = os.path.join(current_dir, "data", pop_name)
+        self.pop_incluster_file = os.path.join(current_dir, "data", pop_incluster_name)
+        self.pop_ejected_file = os.path.join(current_dir, "data", pop_ejected_name)
 
         # Data storage
         self.channels = []
@@ -25,7 +27,9 @@ class _GCBBHInternalManager:
         self.weight_dict = {}
         self.loge_grid = np.linspace(-10, 0, 1000)
         self.merged_incluster_cdf = None
-        self.full_population_data = []  # Stores all 10 realizations
+        self.full_population_incluster = []
+        self.full_population_ejected = []
+        self.full_population_all = []
 
         # Trigger automatic loading
         self._load_all_data()
@@ -70,10 +74,23 @@ class _GCBBHInternalManager:
                 if c in self.efuncdict:
                     self.merged_incluster_cdf += (self.weight_dict[c] / total_n) * self.efuncdict[c](self.loge_grid)
 
-        # 2. Load MW Globular Cluster BBH snapshot
-        if os.path.exists(self.pop_file):
-            # Read CSV and drop potential empty rows to keep data clean
-            self.full_population_data = pd.read_csv(self.pop_file).dropna().values.tolist()
+        # 2. Load MW Globular Cluster BBH snapshots (In-cluster and Ejected)
+        if os.path.exists(self.pop_incluster_file):
+            self.full_population_incluster = pd.read_csv(self.pop_incluster_file).dropna().values.tolist()
+        if os.path.exists(self.pop_ejected_file):
+            self.full_population_ejected = pd.read_csv(self.pop_ejected_file).dropna().values.tolist()
+
+        self.full_population_all = self.full_population_incluster + self.full_population_ejected
+
+    def _get_population_by_channel(self, channel="all"):
+        if channel.lower() == "incluster":
+            return self.full_population_incluster
+        elif channel.lower() == "ejected":
+            return self.full_population_ejected
+        elif channel.lower() == "all":
+            return self.full_population_all
+        else:
+            raise ValueError("channel must be 'all', 'incluster', or 'ejected'.")
 
     def generate_ecc_samples_10Hz(self, channel_name, size):
         """Generate random samples from the 10Hz eccentricity distributions."""
@@ -136,20 +153,24 @@ def plot_ecc_cdf(e_list, label="Sample"):
     plt.show()
 
 
-def get_full_10_realizations():
-    return _manager.full_population_data
+def get_full_10_realizations(channel="all"):
+    return _manager._get_population_by_channel(channel)
 
 
-def get_single_mw_realization():
-    n = len(_manager.full_population_data) // 10
-    return random.sample(_manager.full_population_data, n)
+def get_single_mw_realization(channel="all"):
+    data = _manager._get_population_by_channel(channel)
+    if not data: return []
+    n = len(data) // 10
+    return random.sample(data, n)
 
 
-def get_random_systems(n):
-    if n <= len(_manager.full_population_data):
-        return random.sample(_manager.full_population_data, n)
+def get_random_systems(n, channel="all"):
+    data = _manager._get_population_by_channel(channel)
+    if not data: return []
+    if n <= len(data):
+        return random.sample(data, n)
     else:
-        return random.choices(_manager.full_population_data, k=n)
+        return random.choices(data, k=n)
 
 
 def plot_mw_gc_bbh_snapshot(systems=None, title="MW Globular Cluster BBH Snapshot"):
