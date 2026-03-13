@@ -513,6 +513,10 @@ Retrieves a snapshot of the GC BBH population in the Milky Way. This method supp
         * `'random'`: Returns a specific number of randomly selected systems.
     * `n_random` (int, optional): Number of systems to retrieve (only used if `mode='random'`). Default is 500.
     * `plot` (bool, optional): If `True`, plots the snapshot ($1-e$ vs $a$).
+    * `channel` (str, optional): Target population group. Default is 'all'.
+      * `'all': Returns systems from both in-cluster and ejected populations.
+      * `'incluster': Returns systems exclusively from the in-cluster population (Mock_GC_BBHs.csv).
+      * `'ejected': Returns systems exclusively from the ejected population (Mock_GC_BBHs_ejected.csv).
 * **Output**:
     * A list of `CompactBinary` objects.
     * **Warning**: The underlying catalog represents a finite set of simulations (~230 systems per realization). If `n_random` exceeds the size of a single realization, the returned sample will inevitably mix systems from different stochastic realizations. Due to the small sample size of the MC N-body source catalog, these samples may not be strictly statistically independent.
