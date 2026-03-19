@@ -1590,7 +1590,7 @@ def _plot_mw_catalog(catalog):
 
     plt.rcParams['mathtext.fontset'] = 'cm'
     plt.rcParams['font.family'] = 'serif'
-    fig, ax = plt.subplots(figsize=(7.5, 6), dpi=100)
+    fig, ax = plt.subplots(figsize=(7.5, 6), dpi=150)
 
     x_min, x_max = (2e-3, 2e3)
     y_min, y_max = (1e-5, 1.2)
