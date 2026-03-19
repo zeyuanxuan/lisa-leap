@@ -6,7 +6,6 @@ try:
     from .core import LISAeccentric as _CoreEngine
     from .core import CompactBinary
 
-    # 【关键修改】：显式导入控制函数
     from .core import set_output_control, set_verbose
 
 except ImportError as e:
@@ -22,6 +21,7 @@ GC = _default_instance.GC
 Field = _default_instance.Field
 Waveform = _default_instance.Waveform
 Noise = _default_instance.Noise
+getMWcatalog = _default_instance.getMWcatalog
 
 # 4. 【暴露数据类】
 CompactBinary = CompactBinary
@@ -35,8 +35,9 @@ __all__ = [
     'Waveform',
     'Noise',
     'CompactBinary',
-    'set_output_control',  # <--- 【关键修改】：加入导出列表
-    'set_verbose'  # <--- 【关键修改】：加入导出列表
+    'set_output_control',
+    'set_verbose',
+    'getMWcatalog'
 ]
 
 # print("LISAeccentric package initialized successfully.")

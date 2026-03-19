@@ -1459,3 +1459,338 @@ class LISAeccentric:
             except Exception as e:
                 print(f"[Noise] Error reading curve: {e}")
                 return None
+
+
+# ==============================================================================
+# ADDED FEATURE: getMWcatalog (Milky Way Population Catalog Generator)
+# ==============================================================================
+import matplotlib.patheffects as path_effects
+import matplotlib.colors as mcolors
+import matplotlib as mpl
+from matplotlib.lines import Line2D
+import os
+import random
+import numpy as np
+import copy
+
+_CONST_AU = 1.495978707e11
+_CONST_G = 6.67430e-11
+_CONST_C = 299792458.0
+_CONST_MSUN = 1.98847e30
+_CONST_YEAR = 31557600.0
+
+
+def _calculate_evaporation_tau(a_sec, n_sec3, sigmav_dimless, mp_sec):
+    return 2.33e-3 * sigmav_dimless / (mp_sec * n_sec3 * a_sec) / 0.69315
+
+
+def _calculate_ecrit_and_tmerger(surv_a_sec, surv_e, n_density_sec3, sigmav_dimless, age_sec, mp_sec, m1_sec, m2_sec):
+    beta_ecrit = (85.0 / 3.0) * m1_sec * m2_sec * (m1_sec + m2_sec)
+    forb_val = 1.0 / (2.0 * np.pi) * np.sqrt(m1_sec + m2_sec) * np.power(surv_a_sec, -1.5)
+    term1 = 0.1 * sigmav_dimless / forb_val
+    inner_mult = (27.0 / 4.0) * np.power(surv_a_sec, 29.0 / 7.0) * (mp_sec ** 2) / (m1_sec + m2_sec) * np.power(
+        n_density_sec3 * np.pi / beta_ecrit, 2.0 / 7.0)
+    term2 = np.sqrt(1.0 / sigmav_dimless * np.power(inner_mult, 7.0 / 12.0))
+    b_val = np.minimum(term1, term2)
+    T_val = np.minimum(1.0 / (n_density_sec3 * np.pi * b_val * b_val * sigmav_dimless), age_sec)
+    ecrit_inner = 1.0 - np.power(beta_ecrit * T_val / np.power(surv_a_sec, 4.0), 2.0 / 7.0)
+    ecrit = np.sqrt(np.maximum(0.0, ecrit_inner))
+    beta_tmerger = (64.0 / 5.0) * m1_sec * m2_sec * (m1_sec + m2_sec)
+    tc = np.power(surv_a_sec, 4.0) / (4.0 * beta_tmerger)
+    tmerger_c = (768.0 / 425.0) * tc * np.power(1.0 - ecrit * ecrit, 3.5)
+    tmerger_actual = (768.0 / 425.0) * tc * np.power(1.0 - surv_e * surv_e, 3.5)
+    return tmerger_actual, tmerger_c
+
+
+def _run_evaporation_simulation(pct=0.1):
+    age_gyr = 10.0
+    fbh = 7.5e-4
+    n_blocks = 40
+    r_min_kpc, r_max_kpc = (0.5, 15.0)
+    log_a_min, log_a_max = (2.0, 4.5)
+
+    pc_sec = 3.261 * sciconsts.light_year / _CONST_C
+    m_sun_sec = _CONST_MSUN * _CONST_G / np.power(_CONST_C, 3.0)
+    year_sec = _CONST_YEAR
+    au_sec = _CONST_AU / _CONST_C
+
+    age_sec = age_gyr * 1e9 * year_sec
+    sigmav_dimless = 50e3 / _CONST_C
+    mp_sec = 0.6 * m_sun_sec
+    m1_sec = 10.0 * m_sun_sec
+    m2_sec = 10.0 * m_sun_sec
+
+    n0_sec3 = 0.1 / np.power(pc_sec, 3.0)
+    R_sun_sec = 8.0 * 1e3 * pc_sec
+    R_l_sec = 2.6 * 1e3 * pc_sec
+    h_z_sec = 1.0 * 1e3 * pc_sec
+
+    r_min_sec = r_min_kpc * 1e3 * pc_sec
+    r_max_sec = r_max_kpc * 1e3 * pc_sec
+    delta_r_sec = (r_max_sec - r_min_sec) / n_blocks
+
+    global_res = []
+
+    for i in range(n_blocks):
+        r_mid_sec = r_min_sec + i * delta_r_sec + delta_r_sec / 2.0
+        r_mid_kpc = r_mid_sec / (1e3 * pc_sec)
+        vol_sec3 = 2 * np.pi * r_mid_sec * delta_r_sec * (2 * h_z_sec)
+        n_density_sec3 = n0_sec3 * np.exp(-(r_mid_sec - R_sun_sec) / R_l_sec)
+
+        N_real_block = vol_sec3 * n_density_sec3 * fbh
+        N_gen = int(round(N_real_block * pct))
+
+        if N_gen <= 0: continue
+
+        log_a = np.random.uniform(log_a_min, log_a_max, N_gen)
+        a_sec = np.power(10, log_a) * au_sec
+        e_init = np.sqrt(np.random.random(N_gen))
+
+        tau_sec = _calculate_evaporation_tau(a_sec, n_density_sec3, sigmav_dimless, mp_sec)
+        prob1 = np.exp(-age_sec / tau_sec)
+        survived_mask_1 = np.random.random(N_gen) < prob1
+        n_survived_1 = np.sum(survived_mask_1)
+
+        if n_survived_1 > 0:
+            surv_a_sec = a_sec[survived_mask_1]
+            surv_e = e_init[survived_mask_1]
+
+            t_act, t_c = _calculate_ecrit_and_tmerger(
+                surv_a_sec, surv_e, n_density_sec3, sigmav_dimless, age_sec, mp_sec, m1_sec, m2_sec
+            )
+
+            with np.errstate(divide='ignore', invalid='ignore', over='ignore'):
+                prob2 = np.exp(-t_c / t_act)
+                prob2 = np.nan_to_num(prob2, nan=0.0, posinf=1.0)
+
+            survived_mask_2 = np.random.random(n_survived_1) < prob2
+            n_survived_final = np.sum(survived_mask_2)
+
+            if n_survived_final > 0:
+                final_a_sec = surv_a_sec[survived_mask_2]
+                final_e = surv_e[survived_mask_2]
+                phi = np.random.uniform(0, 2 * np.pi, n_survived_final)
+                dl_kpc = np.sqrt((r_mid_kpc * np.cos(phi) - 8.0) ** 2 + (r_mid_kpc * np.sin(phi)) ** 2)
+
+                for k in range(n_survived_final):
+                    global_res.append(['Field', 10.0, 10.0, final_a_sec[k] / au_sec, final_e[k], dl_kpc[k], -1.0, {}])
+
+    return global_res
+
+
+def _plot_mw_catalog(catalog):
+    if not catalog:
+        print("[Catalog] No systems to plot.")
+        return
+
+    raw_labels = np.array([row[0] for row in catalog])
+    a = np.array([row[3] for row in catalog], dtype=float)
+    e = np.array([row[4] for row in catalog], dtype=float)
+    snr = np.array([row[6] for row in catalog], dtype=float)
+
+    plt.rcParams['mathtext.fontset'] = 'cm'
+    plt.rcParams['font.family'] = 'serif'
+    fig, ax = plt.subplots(figsize=(7.5, 6), dpi=100)
+
+    x_min, x_max = (2e-3, 2e3)
+    y_min, y_max = (1e-5, 1.2)
+    a_grid = np.logspace(np.log10(x_min), np.log10(x_max), 1000) * _CONST_AU
+
+    m1_m2_bg = 10.0 * _CONST_MSUN
+    beta = 64 / 5 * _CONST_G ** 3 * m1_m2_bg * m1_m2_bg * (m1_m2_bg + m1_m2_bg) / _CONST_C ** 5
+
+    merger_lines = [
+        (1e10, r'$t_{\mathrm{merger}}=10^{10}\,\mathrm{yr}$', 'navy', '-.'),
+        (1e7, r'$t_{\mathrm{merger}}=10^{7}\,\mathrm{yr}$', 'purple', '--'),
+        (1e4, r'$t_{\mathrm{merger}}=10^{4}\,\mathrm{yr}$', 'maroon', ':')
+    ]
+
+    bg_handles, bg_labels = [], []
+    for tyr, lbl, color, ls in merger_lines:
+        term = (tyr * _CONST_YEAR * (425.0 / 768.0) * 4.0 * beta) / (a_grid ** 4)
+        val_ome = np.power(term, 2.0 / 7.0)
+        valid = (val_ome <= y_max) & (val_ome >= y_min)
+        if np.any(valid):
+            line, = ax.plot(a_grid[valid] / _CONST_AU, val_ome[valid], color=color, linestyle=ls, linewidth=2.0,
+                            alpha=0.7, zorder=0)
+            bg_handles.append(line)
+            bg_labels.append(lbl)
+
+    cmap, norm = copy.copy(mpl.colormaps['jet']), mcolors.LogNorm(vmin=0.1, vmax=100)
+    scatter_handles, sc_final = [], None
+
+    marker_settings = {
+        'GN': {'marker': '*', 'scale': 1.4, 'legend_size': 14},
+        'GC': {'marker': 'o', 'scale': 1.0, 'legend_size': 10},
+        'Field': {'marker': '^', 'scale': 1.0, 'legend_size': 10}
+    }
+
+    for label_name, settings in marker_settings.items():
+        mask = (raw_labels == label_name)
+        if not np.any(mask): continue
+        sub_a, sub_e, sub_snr = a[mask], e[mask], snr[mask]
+        size_scale = settings['scale']
+
+        # Evaporating
+        m_evap = sub_snr < 0
+        if np.any(m_evap):
+            plot_a_evap = sub_a[m_evap]
+            plot_e_evap = sub_e[m_evap]
+            ax.scatter(plot_a_evap, 1.0 - plot_e_evap, s=20 * size_scale,
+                       marker=settings['marker'], c=np.full_like(plot_a_evap, 0.1), cmap=cmap, norm=norm,
+                       alpha=0.3, edgecolors='none', zorder=1)
+
+        # Normal
+        m_low, m_high = (sub_snr >= 0.0) & (sub_snr < 0.1), sub_snr >= 0.1
+        if np.any(m_low):
+            ax.scatter(sub_a[m_low], 1.0 - sub_e[m_low], s=20 * size_scale, c=sub_snr[m_low], marker=settings['marker'],
+                       cmap=cmap, norm=norm, alpha=0.5, zorder=5)
+        if np.any(m_high):
+            idx = np.argsort(sub_snr[m_high])[::-1]
+            s_plot = np.clip(np.sqrt(np.clip(sub_snr[m_high][idx], 1e-3, 200)) * 50, 20, 300) * size_scale
+            sc_final = ax.scatter(sub_a[m_high][idx], 1.0 - sub_e[m_high][idx], s=s_plot, c=sub_snr[m_high][idx],
+                                  marker=settings['marker'], cmap=cmap, norm=norm, edgecolors='k', linewidths=0.3,
+                                  alpha=0.7, zorder=10)
+
+        proxy = Line2D([], [], color='white', marker=settings['marker'], markeredgecolor='k', markerfacecolor='gray',
+                       markersize=settings['legend_size'], label=label_name)
+        scatter_handles.append(proxy)
+
+    legend_bg = ax.legend(bg_handles, bg_labels, loc='lower left', bbox_to_anchor=(0.0, 0.0), fontsize=13, frameon=True,
+                          framealpha=1.0, edgecolor='gray')
+    legend_bg.set_zorder(100)
+    ax.add_artist(legend_bg)
+
+    legend_pop = ax.legend(handles=scatter_handles, loc='lower left', bbox_to_anchor=(0.0, 0.25), title='Population',
+                           fontsize=13, frameon=True, framealpha=1.0, edgecolor='gray')
+    legend_pop.set_zorder(101)
+
+    stroke_effects = [path_effects.withStroke(linewidth=2, foreground='black')]
+    common_txt_props = {
+        'fontsize': 11, 'fontweight': 'bold', 'color': 'white',
+        'verticalalignment': 'center', 'horizontalalignment': 'center',
+        'multialignment': 'center', 'zorder': 105, 'path_effects': stroke_effects
+    }
+
+    ax.text(10 ** ((np.log10(100) + np.log10(x_max)) / 2),
+            10 ** (np.log10(y_min) + (np.log10(y_max) - np.log10(y_min)) * (2.0 / 3.0)),
+            "Wide\nField\nBBHs\n($a>100$au)", transform=ax.transData,
+            bbox=dict(boxstyle='round,pad=0.5', facecolor='gray', alpha=0.8, edgecolor='none'), **common_txt_props)
+    ax.text(0.9, 0.4, "GN and \n GC BBHs", transform=ax.transData,
+            bbox=dict(boxstyle='round,pad=0.5', facecolor='gray', alpha=0.8, edgecolor='none'), **common_txt_props)
+
+    ax.set_xscale('log');
+    ax.set_yscale('log');
+    ax.set_xlim(x_min, x_max);
+    ax.set_ylim(y_min, y_max)
+    ax.set_xlabel(r'$a\ [\mathrm{au}]$', fontsize=26);
+    ax.set_ylabel(r'$1 - e$', fontsize=26)
+    ax.tick_params(axis='both', which='major', labelsize=22, length=8, width=1.5, direction='in', top=True, right=True)
+    if sc_final:
+        cbar = plt.colorbar(sc_final, pad=0.02)
+        cbar.ax.set_title('SNR', fontsize=22, pad=12)
+    plt.grid(True, which='both', ls='-', alpha=0.15, zorder=0)
+    plt.tight_layout()
+    plt.show()
+
+
+@mute_if_global_verbose_false
+def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.01, tobs_yr=10.0):
+    """
+    Generate and optionally plot a full Milky Way GW Population Catalog.
+    Combines populations from Galactic Nucleus (GN), Globular Clusters (GC), and Field.
+    """
+    include_evaporated=include_field_bkg
+    evap_pct=bkg_pct
+    print(f"\n[Catalog] Generating Milky Way GW Catalog (Tobs={tobs_yr} yr)...")
+    all_binaries = []
+    field_npy_name = 'field_snapshots_aggregated.npy'
+    field_sample_divisor = 1000
+    # 1. 抓取 GN (Galactic Nucleus) 样本
+    if hasattr(self, 'GN'):
+        gn_pops = self.GN.get_snapshot(rate_gn=3.0, age_ync=3.0e6, n_ync_sys=100, max_bh_mass=100.0, plot=False)
+        for b in gn_pops:
+            # 【修复】: 保存底层传上来的真实名称 (如 GN_steadystate) 到 metadata
+            b.extra['source_label'] = b.label
+            b.label = "GN"  # 统一修改大类名以适配画图
+        all_binaries.extend(gn_pops)
+
+    # 2. 抓取 GC (Globular Clusters) 样本
+    if hasattr(self, 'GC'):
+        gc_pops = self.GC.get_snapshot(mode='single', channel='all', plot=False)
+        for b in gc_pops:
+            # 【修复】: 保存底层传上来的真实星团名称 (如 NGC_6121_Incluster)
+            b.extra['source_label'] = b.label
+            b.label = "GC"
+        all_binaries.extend(gc_pops)
+
+    # 3. 抓取 Field (孤立/飞掠场) 样本
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    target_file = os.path.join(current_dir, field_npy_name)
+
+    if os.path.exists(target_file):
+        try:
+            print(f"[Catalog] Loading Field data from {field_npy_name}...")
+            raw = np.load(target_file, allow_pickle=True)
+            data_block = raw.item().get('data', []) if (hasattr(raw, 'item') and isinstance(raw.item(), dict)) else raw
+            all_field_rows = data_block.tolist() if isinstance(data_block, np.ndarray) else list(data_block)
+
+            if len(all_field_rows) > 0:
+                num = max(1, len(all_field_rows) // field_sample_divisor)
+                sampled = random.sample(all_field_rows, num)
+
+                for row in sampled:
+                    cb = CompactBinary.from_list(data_list=list(row), schema='snapshot_std')
+                    # 【修复】: 保存原始 field 的分类标签
+                    cb.extra['source_label'] = cb.label
+                    cb.label = "Field"
+                    all_binaries.append(cb)
+                print(f"[Catalog] ✅ Sampled {num} Field systems (1/{field_sample_divisor} of total).")
+        except Exception as e:
+            print(f"[Catalog] ❌ Load Failed. Error: {e}")
+    else:
+        print(f"[Catalog] ⚠️ Warning: Field file not found at {target_file}. Skipping Field population.")
+
+    # 4. 计算 SNR 并整合最终数据格式
+    formatted_catalog = []
+    seen_gc_ae = set()
+    print(f"[Catalog] Compute SNR for all the systems...")
+    for b in all_binaries:
+        if hasattr(b, 'compute_snr_analytical'):
+            snr_v = b.compute_snr_analytical(tobs_yr=tobs_yr, quick_analytical=False, verbose=False)
+        else:
+            snr_v = 0.0
+
+        # 过滤完全重复的低信噪比 GC 点
+        if b.label == "GC" and snr_v < 0.1:
+            ae_tuple = (b.a, b.e)
+            if ae_tuple in seen_gc_ae:
+                continue
+            seen_gc_ae.add(ae_tuple)
+
+        # 此时 b.extra 里面已经安全包含了 'source_label'
+        formatted_catalog.append([b.label, b.m1, b.m2, b.a, b.e, b.Dl, snr_v, b.extra])
+
+    # 5. 添加蒸发态群 (Evaporated Population)
+    if include_evaporated:
+        print(f"[Catalog] Incorporating evaporated population at {evap_pct * 100:.1f}% ratio...")
+        evap_systems = _run_evaporation_simulation(pct=evap_pct)
+
+        # 为了格式统一，手动把蒸发态源的 source_label 也塞进 metadata
+        for es in evap_systems:
+            # es 格式是 ['Field', m1, m2, a, e, Dl, snr, metadata_dict]
+            es[7]['source_label'] = 'Evaporated_Field'
+
+        formatted_catalog.extend(evap_systems)
+
+    print(f"[Catalog] Successfully generated {len(formatted_catalog)} systems.")
+
+    # 6. 执行画图
+    if plot:
+        _plot_mw_catalog(formatted_catalog)
+
+    return formatted_catalog
+
+
+# 再次挂载
+LISAeccentric.getMWcatalog = getMWcatalog
