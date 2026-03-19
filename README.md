@@ -109,7 +109,7 @@ print(f"Original Source: {metadata.get('source_label', 'Unknown')}")
    Original Source: GN_YNC
   ```
 <p align="left">
-  <img src="./images/egmockMW.png" width="500">
+  <img src="./images/egmockMW1.png" width="500">
 </p>
 
 ___
