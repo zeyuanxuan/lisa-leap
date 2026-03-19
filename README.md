@@ -66,7 +66,53 @@ Step 3: Import LISAeccentric in your code and run your job
 module load python/3.9.6
 python your_script.py
 ```
+___
+## 🚀 If you simply want to get a catalog...
 
+If you just need a ready-to-use Milky Way eccentric gravitational wave source catalog without using the detailed functions of simulation and waveform analysis, you can use the all-in-one `getMWcatalog()` function. 
+
+This feature randomly generates snapshot populations from all three formation environments in the Milky Way (Galactic Nuclei, Globular Clusters, and the Galactic Field), calculates their analytical SNRs, and visualizes the entire population in a single scatter plot.
+
+#### `LISAeccentric.getMWcatalog()`
+* **Input**:
+    * `plot` (bool, optional): If `True`, generates a $1-e$ vs. $a$ scatter plot of the entire Milky Way catalog. Default is `True`.
+    * `include_field_bkg` (bool, optional): If `True`, incorporates the background wide field binaries into the catalog (which are irrelevant to the mHz GW source catalog). Default is `False`.
+    * `bkg_pct` (float, optional): The fraction of the background wide field binaries population to simulate (e.g., 0.01 for 1%). Default is `0.01`.
+    * `tobs_yr` (float, optional): Observation time in years used for SNR calculation. Default is `10.0`.
+* **Output**:
+    * A list of generated binary systems. Each element is formatted strictly as: `[label, m1, m2, a, e, Dl, snr, metadata_dict]`. The `metadata_dict` preserves the detailed physical origin (e.g., specific globular cluster names) under the `'source_label'` key.
+
+**Example:**
+```python
+import LISAeccentric
+
+# Generate the full Milky Way catalog and plot it
+mw_catalog = LISAeccentric.getMWcatalog(
+    plot=True, 
+    include_field_bkg=True, 
+   bkg_pct=0.01, 
+    tobs_yr=10.0
+)
+
+# Inspect the first system in the catalog
+first_system = mw_catalog[0]
+label, m1, m2, a, e, Dl, snr, metadata = first_system
+
+print(f"\nPopulation size: {len(mw_catalog)} systems")
+print(f"Sample System [{label}]: m1={m1} M_sun, m2={m2} M_sun, a={a:.4e} AU, e={e:.4f}")
+print(f"Original Source: {metadata.get('source_label', 'Unknown')}")
+```
+* **Output**:
+  ```
+   Population size: 736547 systems
+   Sample System [GN]: m1=7.328737 M_sun, m2=9.115064 M_sun, a=3.3044e-02 AU, e=0.8935
+   Original Source: GN_YNC
+  ```
+<p align="left">
+  <img src="./images/egmockMW.png" width="500">
+</p>
+
+___
 ## 🎯 Features & Usage Examples
 
 ### 1️⃣ Global Configuration
