@@ -80,7 +80,7 @@ This feature randomly generates snapshot populations from all three formation en
     * `bkg_pct` (float, optional): The fraction of the background wide field binaries population to simulate (e.g., 0.01 for 1%). Default is `0.01`.
     * `tobs_yr` (float, optional): Observation time in years used for SNR calculation. Default is `10.0`.
 * **Output**:
-    * A list of generated binary systems. Each element is formatted strictly as: `[label, m1, m2, a, e, Dl, snr, metadata_dict]`. The `metadata_dict` preserves the detailed physical origin (e.g., specific globular cluster names) under the `'source_label'` key.
+    * A list of generated binary systems. Each element is formatted as: `[label, m1, m2, a, e, Dl, snr, metadata_dict]`. The `metadata_dict` preserves the detailed physical origin (e.g., specific globular cluster names) under the `'source_label'` key.
 
 **Example:**
 ```python
