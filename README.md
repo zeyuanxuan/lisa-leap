@@ -271,9 +271,9 @@ ___
 
 
 #### `.evolve_orbit()`
-Predicts the future state of the binary system by evolving its orbital parameters forward in time due to gravitational wave emission (Peters64 formula).
+Predicts the future state of the binary system by evolving its orbital parameters forward in time due to gravitational wave emission (Peters64 formula). Supports negative dt (inverse evolution).
 * **Input**:
-    * `delta_t_yr` (float): Time duration to evolve the system in years.
+    * `delta_t_yr` (float): Time duration to evolve the system in years. 
     * `update_self` (bool, optional):
         * If `True`: Updates the `a` and `e` attributes of the `CompactBinary` object itself.
         * If `False` (default): Returns the new values without modifying the object.
@@ -1017,7 +1017,7 @@ ___
     * `m1_msun`, `m2_msun` (float): Component masses [$M_\odot$].
     * `a0_au` (float): Initial semi-major axis [au].
     * `e0` (float): Initial eccentricity.
-    * `delta_t_yr` (float): The time duration to evolve forward [years].
+    * `delta_t_yr` (float): The time duration to evolve forward [years]. Supports negative dt (inverse evolution).
 * **Output**:
     * `a_final` (float): Evolved semi-major axis [au].
     * `e_final` (float): Evolved eccentricity.
