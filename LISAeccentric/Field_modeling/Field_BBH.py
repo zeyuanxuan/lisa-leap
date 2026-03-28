@@ -785,10 +785,29 @@ def plot_eccentricity_cdf(e_samples=None, label=None):
     plt.show()
 
 
+# def get_merger_progenitor_population():
+#     model = _get_model()
+#     return model.systemlist
 def get_merger_progenitor_population():
+    """
+    获取 progenitor population 列表，
+    这里对外暴露时将内部 G=c=1 单位转换为标准天文单位 (au, kpc, years)。
+    避免在外部再次处理或引起单位混淆。
+    """
     model = _get_model()
-    return model.systemlist
+    if len(model.systemlist) == 0:
+        return np.array([])
 
+    # 复制一份数据，避免修改类内部的 systemlist
+    pop = np.copy(model.systemlist)
+
+    # 换算单位为常规天文物理单位
+    pop[:, 0] = pop[:, 0] / AU  # a_cur 转换为 au
+    pop[:, 3] = pop[:, 3] / (1000 * pc)  # Dl 转换为 kpc
+    pop[:, 5] = pop[:, 5] / years  # lifetime 转换为 years
+    pop[:, 6] = pop[:, 6] / years  # tau 转换为 years
+
+    return pop
 
 def plot_progenitor_sma_distribution(bins=50):
     model = _get_model()
