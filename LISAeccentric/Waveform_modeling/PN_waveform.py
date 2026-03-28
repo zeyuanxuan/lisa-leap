@@ -394,7 +394,7 @@ def tmerger_integral(m1, m2, a0, e0):
     return t_circ * factor
 def GWtime(m1, m2, a1, e1):
     return tmerger_integral(m1, m2, a1, e1)
-def solve_ae_after_time(m1, m2, a0, e0, dt):
+def solve_ae_after_time0(m1, m2, a0, e0, dt):
     current_life = GWtime(m1, m2, a0, e0)
     if dt >= current_life:
         return 0.0, 0.0
@@ -405,6 +405,50 @@ def solve_ae_after_time(m1, m2, a0, e0, dt):
                         1e-50, e0, xtol=1e-12, maxiter=50)
     except:
         e_curr = e0
+    a_curr = c0 * peters_factor_func(e_curr)
+    return a_curr, e_curr
+
+
+def solve_ae_after_time(m1, m2, a0, e0, dt):
+    """
+    Evolve system by dt seconds (Supports both forward and backward time evolution).
+    Inputs: m1, m2 (seconds), a0 (seconds), e0 (dimensionless), dt (seconds).
+    Returns: a_curr, e_curr
+    """
+    current_life = GWtime(m1, m2, a0, e0)
+
+    # 1. 检查正向演化是否已经合并
+    if dt > 0 and dt >= current_life:
+        return 0.0, 0.0
+
+    t_rem_target = current_life - dt
+
+    # 2. 核心守恒量 c0 求解 (正反向均适用)
+    fact_e0 = peters_factor_func(e0)
+    if fact_e0 == 0: return 0.0, 0.0  # Should not happen if e0 > 1e-10
+
+    c0 = a0 / fact_e0
+
+    # 3. 动态设定搜索区间
+    if dt > 0:
+        # 正向演化：e 减小
+        e_lower, e_upper = 1e-6, e0
+    elif dt < 0:
+        # 反向演化：e 增大 (历史上的轨道偏心率更高)
+        e_lower, e_upper = e0, 1-1e-7
+    else:
+        # dt == 0
+        return a0, e0
+
+    # 4. 求解目标 e_curr
+    try:
+        e_curr = brentq(lambda e: GWtime(m1, m2, c0 * peters_factor_func(e), e) - t_rem_target,
+                        e_lower, e_upper, xtol=1e-12, maxiter=50)
+    except Exception as e:
+        print(f"[Warning] solve_ae failed for dt={dt}: {e}. Returning initial values.")
+        e_curr = e0
+
+    # 5. 根据 e_curr 和 c0 还原 a_curr
     a_curr = c0 * peters_factor_func(e_curr)
     return a_curr, e_curr
 def dSNR2dt_numpy_old(m1, m2, a, e, Dl):
