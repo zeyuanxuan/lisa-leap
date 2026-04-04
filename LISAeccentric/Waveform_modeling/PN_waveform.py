@@ -2121,7 +2121,7 @@ def compute_integral_sum(h1left, h1right, h2left, h2right,
                          snfleft, snfright,
                          xsl, xsr, phic, tobs):
     """
-    计算积分求和: 4 * Re[ h1 * conj(h2) / Sn ]
+    计算积分求和: 4 * Re[ h1 * conj(h2) / Sn ]/4，注意hf系数里有一个1/2h0因子最后和标准公式的4抵消了
     保持 Numba 加速，因为这是纯数组运算
     """
     n = len(h1left)
@@ -2130,8 +2130,8 @@ def compute_integral_sum(h1left, h1right, h2left, h2right,
     for i in range(n):
         # 计算被积函数的值 (梯形法则的左边点和右边点)
         # 注意：这里 snfleft/right 是从外部传入的数组，不需要在 Numba 里计算
-        term_left = 4.0 * h1left[i] * h2left[i] / snfleft[i] * np.cos(h1_angle_left[i] - (h2_angle_left[i] + phic))
-        term_right = 4.0 * h1right[i] * h2right[i] / snfright[i] * np.cos(
+        term_left = 1.0 * h1left[i] * h2left[i] / snfleft[i] * np.cos(h1_angle_left[i] - (h2_angle_left[i] + phic))
+        term_right = 1.0 * h1right[i] * h2right[i] / snfright[i] * np.cos(
             h1_angle_right[i] - (h2_angle_right[i] + phic))
 
         dx = xsr[i] - xsl[i]
