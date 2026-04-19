@@ -2146,7 +2146,7 @@ def compute_integral_sum(h1left, h1right, h2left, h2right,
 # 主接口
 # -----------------------------------------------------------------------------
 
-def inner_product(fs, waveform1, waveform2, phic, snf=None):
+def inner_product0(fs, waveform1, waveform2, phic, snf=None):
     """
     计算两个波形的内积 (SNR^2)。
 
@@ -2229,6 +2229,90 @@ def inner_product(fs, waveform1, waveform2, phic, snf=None):
     ABval = abs(ABval_raw)
     return ABval
 
+
+def inner_product(fs, waveform1, waveform2, phic, snf=None):
+    """
+    计算两个波形的内积 (SNR^2)。
+
+    修改说明:
+    不再在 Numba 内部计算噪声，而是直接调用全局的 S_n_lisa 函数。
+    这样既利用了 CSV 插值，又保留了 Numba 对积分的加速。
+    """
+    num1 = len(waveform1)
+    dt = 1.0 / fs
+    tobs = num1 * dt
+
+    # 1. 生成频率轴 (仅修改此处的定义，严格对齐 FFT 的物理频率点)
+    # 【修改点】：单边谱包含 0 频和 Nyquist 频，总点数为 num1 // 2 + 1
+    num_pts = num1 // 2 + 1
+    xs = np.arange(num_pts) * (fs / num1)
+
+    # 2. FFT 处理 (使用 Scipy FFT)
+    hf_1 = scipy.fftpack.fft(waveform1)
+    hf_1_abs = np.abs(hf_1)
+    hf_1_angle = np.angle(hf_1)[0:num_pts]
+    # 归一化幅度
+    hf_1_norm = 2.0 / num1 * hf_1_abs[0:num_pts]
+
+    hf_2 = scipy.fftpack.fft(waveform2)
+    hf_2_abs = np.abs(hf_2)
+    hf_2_angle = np.angle(hf_2)[0:num_pts]
+    hf_2_norm = 2.0 / num1 * hf_2_abs[0:num_pts]
+
+    # 3. [关键修改] 生成噪声向量 Snfvec
+    # 我们直接调用顶部的 S_n_lisa 函数，它已经支持了向量化和 CSV 插值
+    # 这里的计算是在 Python/Numpy 层完成的，非常快
+    if snf is None:
+        # 默认调用全局定义的 S_n_lisa
+        Snfvec = S_n_lisa(xs)
+    else:
+        # 如果用户传了自定义 snf 函数
+        try:
+            Snfvec = snf(xs)
+        except Exception:
+            Snfvec = np.array([snf(f) for f in xs])
+
+    # 确保类型是 float64，防止 Numba 报错
+    Snfvec = np.asarray(Snfvec, dtype=np.float64)
+
+    # 4. 数据切片 (去除直流分量 index 0，因为它通常是无意义的或无限大噪声)
+    # 准备传给 Numba 的数组
+    h1left = hf_1_norm[1:-1]
+    h1right = hf_1_norm[2:]
+    h1_angle_left = hf_1_angle[1:-1]
+    h1_angle_right = hf_1_angle[2:]
+
+    h2left = hf_2_norm[1:-1]
+    h2right = hf_2_norm[2:]
+    h2_angle_left = hf_2_angle[1:-1]
+    h2_angle_right = hf_2_angle[2:]
+
+    snfleft = Snfvec[1:-1]
+    snfright = Snfvec[2:]
+
+    xsl = xs[1:-1]
+    xsr = xs[2:]
+
+    # 简单检查防止 Snf 为 0 导致除零错误 (虽然 S_n_lisa 逻辑里不会返回0)
+    # 如果极小，置为一个极大值
+    mask_zero = (snfleft <= 0)
+    if np.any(mask_zero):
+        snfleft[mask_zero] = 1e100
+    mask_zero_r = (snfright <= 0)
+    if np.any(mask_zero_r):
+        snfright[mask_zero_r] = 1e100
+
+    # 5. 调用 Numba 加速的积分函数
+    ABval_raw = compute_integral_sum(
+        h1left, h1right, h2left, h2right,
+        h1_angle_left, h1_angle_right,
+        h2_angle_left, h2_angle_right,
+        snfleft, snfright,
+        xsl, xsr, phic, tobs
+    )
+
+    ABval = abs(ABval_raw)
+    return ABval
 
 
 
