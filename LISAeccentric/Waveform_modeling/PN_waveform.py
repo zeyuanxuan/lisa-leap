@@ -2243,21 +2243,20 @@ def inner_product(fs, waveform1, waveform2, phic, snf=None):
     tobs = num1 * dt
 
     # 1. 生成频率轴 (仅修改此处的定义，严格对齐 FFT 的物理频率点)
-    # 【修改点】：单边谱包含 0 频和 Nyquist 频，总点数为 num1 // 2 + 1
-    num_pts = num1 // 2 + 1
-    xs = np.arange(num_pts) * (fs / num1)
+    # FFT 的真实频率间隔是 fs / num1，取前 num1 // 2 个点
+    xs = np.arange(num1 // 2) * (fs / num1)
 
     # 2. FFT 处理 (使用 Scipy FFT)
     hf_1 = scipy.fftpack.fft(waveform1)
     hf_1_abs = np.abs(hf_1)
-    hf_1_angle = np.angle(hf_1)[0:num_pts]
+    hf_1_angle = np.angle(hf_1)[0:num1 // 2]
     # 归一化幅度
-    hf_1_norm = 2.0 / num1 * hf_1_abs[0:num_pts]
+    hf_1_norm = 2.0 / num1 * hf_1_abs[0:num1 // 2]
 
     hf_2 = scipy.fftpack.fft(waveform2)
     hf_2_abs = np.abs(hf_2)
-    hf_2_angle = np.angle(hf_2)[0:num_pts]
-    hf_2_norm = 2.0 / num1 * hf_2_abs[0:num_pts]
+    hf_2_angle = np.angle(hf_2)[0:num1 // 2]
+    hf_2_norm = 2.0 / num1 * hf_2_abs[0:num1 // 2]
 
     # 3. [关键修改] 生成噪声向量 Snfvec
     # 我们直接调用顶部的 S_n_lisa 函数，它已经支持了向量化和 CSV 插值
