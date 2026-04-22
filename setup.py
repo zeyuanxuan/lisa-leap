@@ -185,13 +185,13 @@ setup(
     # Data Inclusion Strategy
     include_package_data=True,
     package_data={
-        # Explicitly include data files within sub-packages
         'leap': [
-            'GN_modeling/data/*.npy',
-            'GC_modeling/data/*.csv',
-            'Field_modeling/data/*.npy',
-            'Waveform_modeling/*.npz',  # Includes the acceleration table
+            '*.csv', '*.npy', '*.npz',  # 包含 leap 根目录下的数据
+            '*/*.csv', '*/*.npy', '*/*.npz',  # 包含一级子目录下的数据 (如 GN_modeling/)
+            '*/*/*.csv', '*/*/*.npy', '*/*/*.npz',  # 包含二级子目录下的数据 (如 GN_modeling/data/)
         ],
+
+        'LISAeccentric': ['*.py'],
     },
 
     classifiers=[

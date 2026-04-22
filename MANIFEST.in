@@ -1,4 +1,12 @@
-recursive-include LISAeccentric *.npy
-recursive-include LISAeccentric *.csv
-recursive-include LISAeccentric *.npz
+# 包含核心代码包 leap 里的所有数据文件
+recursive-include leap *.npy
+recursive-include leap *.csv
+recursive-include leap *.npz
+
+# 包含兼容层 LISAeccentric 里的代码
+recursive-include LISAeccentric *.py
+
+# 包含项目的基础文件
 include README.md
+include LICENSE
+include setup.py
