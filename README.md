@@ -3,7 +3,7 @@
 
 ## 📖 Overview
 
-**LISAeccentric** is a Python toolkit for generating eccentric compact binary populations and computing their gravitational wave signals in the LISA band. It supports population synthesis, waveform computation, and signal analysis, including:
+**leap** (distributed on PyPI/GitHub as `lisa-leap`) is a Python toolkit for generating eccentric compact binary populations and computing their gravitational wave signals in the LISA band. It supports population synthesis, waveform computation, and signal analysis, including:
 
 ### 📂 BBH Population Catalogs
 > **Note:** Each module provides methods such as **sample merger eccentricities** and **generate population snapshots**. The snapshot functions return a list of [**`CompactBinary`**](#compactbinary-class) objects.
@@ -22,31 +22,33 @@
 
 > **Note:** Perform calculations via high-level **`CompactBinary` objects**, **OR** input parameters directly into the **Functional API**:
 
-* Generate PN-based, time-domain waveforms for eccentric binaries (via [**Class Object**](#compute_waveform) or [**Direct Input**](#lisaeccentricwaveformcompute_waveform)). [PhysRevD.82.024033]
-* Evolve orbital parameters throughout the inspiral stage (via [**Class Object**](#evolve_orbit) or [**Direct Input**](#lisaeccentricwaveformevolve_orbit)). [PhysRev.136.B1224]
-* Compute the LISA detector response (Michelson signal) for given GW waveforms (via [**Direct Input**](#lisaeccentricwaveformcompute_lisa_response)). [PhysRevD.67.022001]
-* Evaluate characteristic strain ($h_c$) and stochastic backgrounds (via [**Class Object**](#compute_characteristic_strain) or [**Direct Input**](#lisaeccentricwaveformcompute_characteristic_strain_single)). [PhysRevD.110.023020]
-* Calculate signal-to-noise ratio (SNR) and noise-weighted inner products (via [**Class Object**](#compute_snr_analytical) or [**Direct Input**](#lisaeccentricwaveformcompute_snr_analytical)).
+* Generate PN-based, time-domain waveforms for eccentric binaries (via [**Class Object**](#compute_waveform) or [**Direct Input**](#leapwaveformcompute_waveform)). [PhysRevD.82.024033]
+* Evolve orbital parameters throughout the inspiral stage (via [**Class Object**](#evolve_orbit) or [**Direct Input**](#leapwaveformevolve_orbit)). [PhysRev.136.B1224]
+* Compute the LISA detector response (Michelson signal) for given GW waveforms (via [**Direct Input**](#leapwaveformcompute_lisa_response)). [PhysRevD.67.022001]
+* Evaluate characteristic strain ($h_c$) and stochastic backgrounds (via [**Class Object**](#compute_characteristic_strain) or [**Direct Input**](#leapwaveformcompute_characteristic_strain_single)). [PhysRevD.110.023020]
+* Calculate signal-to-noise ratio (SNR) and noise-weighted inner products (via [**Class Object**](#compute_snr_analytical) or [**Direct Input**](#leapwaveformcompute_snr_analytical)).
 
 ---
 
 ## 💾 Installation
 
-You can install `LISAeccentric` directly from GitHub without manually downloading or unzipping files. Please choose the method that matches your environment.
+You can install `lisa-leap` directly from GitHub without manually downloading or unzipping files. Please choose the method that matches your environment.
+
+> **Note on naming:** The distribution package name (used by `pip`) is `lisa-leap`, while the import name (used inside Python code) is `leap`.
 
 #### Method 1: Jupyter Notebook / Google Colab (Recommended)
 If you are working in a notebook (Jupyter, Colab, Kaggle), run the following command in a code cell. 
 ```
-!pip install https://github.com/zeyuanxuan/LISAeccentric/archive/refs/heads/main.zip
+!pip install https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip
 ```
 #### Method 2: Terminal / Command Line
 If you are using a standard terminal, run the command without the !
 ```
-pip install https://github.com/zeyuanxuan/LISAeccentric/archive/refs/heads/main.zip
+pip install https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip
 ```
 **Note:** for Mac/Linux: If pip command is not found or defaults to Python 2, try using pip3 instead: 
 ```
-pip3 install https://github.com/zeyuanxuan/LISAeccentric/archive/refs/heads/main.zip
+pip3 install https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip
 ```
 #### Method 3: University Clusters / HPC
 If you are running jobs on a cluster using existing Python modules (like `module load python/3.9.6`), **load the same module before installing.**
@@ -58,13 +60,20 @@ module load python/3.9.6
 ```
 Step 2: Install the package with --user. This installs the package into your local directory specific to that Python version (e.g., ~/.local/lib/python3.9/site-packages).
 ```
-python3 -m pip install --user https://github.com/zeyuanxuan/LISAeccentric/archive/refs/heads/main.zip
+python3 -m pip install --user https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip
 ```
-Step 3: Import LISAeccentric in your code and run your job
+Step 3: Import leap in your code and run your job
 ```
 # In your job script (.sh/.pbs):
 module load python/3.9.6
 python your_script.py
+```
+
+#### Legacy Environment Support (Old GCC)
+The installer automatically detects the system compiler version. On legacy Linux systems (GCC < 5, e.g., CentOS 7 with GCC 4.8.5), it will automatically cap `numpy`, `scipy`, and `pandas` to older versions that do not require full C11 support, avoiding build errors. You can also force legacy mode manually by setting an environment variable before installation:
+```
+export LISA_LEGACY=1
+pip install --user https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip
 ```
 ___
 ## 🚀 If you simply want to get a catalog...
@@ -73,7 +82,7 @@ If you just need a ready-to-use Milky Way eccentric gravitational wave source ca
 
 This feature randomly generates snapshot populations from all three formation environments in the Milky Way (Galactic Nuclei, Globular Clusters, and the Galactic Field), calculates their analytical SNRs, and visualizes the entire population in a single scatter plot.
 
-#### `LISAeccentric.getMWcatalog()`
+#### `leap.getMWcatalog()`
 * **Input**:
     * `plot` (bool, optional): If `True`, generates a $1-e$ vs. $a$ scatter plot of the entire Milky Way catalog. Default is `True`.
     * `include_field_bkg` (bool, optional): If `True`, incorporates the background wide field binaries into the catalog (which are irrelevant to the mHz GW source catalog). Default is `False`.
@@ -84,10 +93,10 @@ This feature randomly generates snapshot populations from all three formation en
 
 **Example:**
 ```python
-import LISAeccentric
+import leap
 
 # Generate the full Milky Way catalog and plot it
-mw_catalog = LISAeccentric.getMWcatalog(
+mw_catalog = leap.getMWcatalog(
     plot=True, 
     include_field_bkg=True, 
    bkg_pct=0.01, 
@@ -117,7 +126,7 @@ ___
 
 ### 1️⃣ Global Configuration
 
-#### `LISAeccentric.set_output_control`
+#### `leap.set_output_control`
 Sets the global verbosity and warning suppression levels.
 * **Input**: 
     * `verbose` (bool): If `False`, disables internal library printing.
@@ -127,7 +136,7 @@ Sets the global verbosity and warning suppression levels.
 **Example:**
 ```python
 # Set verbose=False to disable internal library printing.
-LISAeccentric.set_output_control(verbose=False, show_warnings=False)
+leap.set_output_control(verbose=False, show_warnings=False)
 ```
 
 ___
@@ -136,7 +145,7 @@ ___
 ### 2️⃣ CompactBinary Class
 The core class of the package. Each object represents a single binary system, managing its physical properties, orbital evolution, waveform generation, and data storage.
 
-#### `LISAeccentric.CompactBinary()`
+#### `leap.CompactBinary()`
 To create a binary system object:
 
 * **Input**:
@@ -150,7 +159,7 @@ To create a binary system object:
 
 **Example:**
 ```python
-my_binary = LISAeccentric.CompactBinary(
+my_binary = leap.CompactBinary(
     m1=10.0, m2=10.0, a=0.26, e=0.985, Dl=8.0, 
     label="Tutorial_Core_Obj",
     extra={
@@ -165,7 +174,7 @@ print(f"   Inclination: {my_binary.extra['inclination']:.4f} rad")
 * **Output**:
   ```
    Output Object: <CompactBinary [Tutorial_Core_Obj]: M=10.0+10.0 m_sun, a=2.600e-01AU, e=0.9850, Dl=8.0kpc | inclination=0.785>
-   Type Inspection: <class 'LISAeccentric.core.CompactBinary'>
+   Type Inspection: <class 'leap.core.CompactBinary'>
    Inclination: 0.7854 rad
   ```
 
@@ -189,7 +198,7 @@ Methods to convert `CompactBinary` objects to and from list formats, facilitatin
     # Import
     print("   B. from_list(data_list=..., schema='snapshot_std')")
     raw_in = ["Imp_Sys", 16.8, 0.5, 0.9, 50.0, 50.0, 0.0]
-    new_obj = LISAeccentric.CompactBinary.from_list(data_list=raw_in, schema='snapshot_std')
+    new_obj = leap.CompactBinary.from_list(data_list=raw_in, schema='snapshot_std')
     print(f"      Output: {new_obj}")
   ```
 * **Output**:
@@ -377,7 +386,7 @@ Computes the **time-evolving** characteristic strain spectrum ($h_c$) by integra
         * `[3] snr`: The integrated Signal-to-Noise Ratio (SNR) calculated from the spectrum.
 **Example:**
 ```python
-my_binary_evolve = LISAeccentric.CompactBinary(
+my_binary_evolve = leap.CompactBinary(
     m1=1e5,      # Primary Mass [M_sun]
     m2=30.0,     # Secondary Mass [M_sun]
     a=0.26,      # Semi-major Axis [AU]
@@ -433,7 +442,7 @@ This module models Binary Black Holes formed dynamically in the Milky Way galact
 ___
 
 
-#### ` LISAeccentric.GN.sample_eccentricities()`
+#### ` leap.GN.sample_eccentricities()`
 Randomly samples $N$ merger eccentricities for BBHs formed in Galactic Nuclei, defined at the LIGO frequency band (10Hz).
 * **Input**:
     * `n_samples` (int): Number of eccentricity samples to generate.
@@ -444,7 +453,7 @@ Randomly samples $N$ merger eccentricities for BBHs formed in Galactic Nuclei, d
 
 **Example:**
 ```python
-gn_e_samples = LISAeccentric.GN.sample_eccentricities(
+gn_e_samples = leap.GN.sample_eccentricities(
     n_samples=5000, max_bh_mass=50.0, plot=True
 )
 print(f"   Output Shape: {np.shape(gn_e_samples)}")
@@ -462,7 +471,7 @@ print(f"   Mean Eccentricity: {np.mean(gn_e_samples)}")
 ___
 
 
-#### `LISAeccentric.GN.get_progenitor()`
+#### `leap.GN.get_progenitor()`
 Retrieves the properties of the binary progenitors (initial states) from the underlying population catalog (BBH in GN, orbiting around a SMBH with M = 4e6 msun). These are the systems *before* they evolve to merger.
 * **Input**:
     * `n_inspect` (int, optional): Number of random systems to retrieve for inspection. Default is 3.
@@ -472,7 +481,7 @@ Retrieves the properties of the binary progenitors (initial states) from the und
 
 **Example:**
 ```python
-gn_progenitors = LISAeccentric.GN.get_progenitor(n_inspect=3)
+gn_progenitors = leap.GN.get_progenitor(n_inspect=3)
 print(f"   Output List Length: {len(gn_progenitors)}")
 print(f"   Sample Item: {gn_progenitors[0]}")
 ```
@@ -485,7 +494,7 @@ print(f"   Sample Item: {gn_progenitors[0]}")
 ___
 
 
-#### `LISAeccentric.GN.get_snapshot()`
+#### `leap.GN.get_snapshot()`
 Generates a snapshot of the BBH population currently in the GN. This includes systems from both the steady-state formation channel and a recent starburst event (Young Nuclear Cluster, YNC). The results can be changed by adjusting the BBH formation rate in the steady-state population and the age and total BBH number in the YNC population.
 * **Input**:
     * `rate_gn` (float, optional): Merger rate for the steady-state channel [Myr$^{-1}$]. Default is 2.0.
@@ -498,7 +507,7 @@ Generates a snapshot of the BBH population currently in the GN. This includes sy
 
 **Example:**
 ```python
-gn_snapshot = LISAeccentric.GN.get_snapshot(
+gn_snapshot = leap.GN.get_snapshot(
     rate_gn=2.0, age_ync=6.0e6, n_ync_sys=100, max_bh_mass=50.0, plot=True
 )
 print(f"   Output List Length: {len(gn_snapshot)} systems")
@@ -520,7 +529,7 @@ This module models Binary Black Holes formed dynamically in Milky Way globular c
 ___
 
 
-#### `LISAeccentric.GC.sample_eccentricities()`
+#### `leap.GC.sample_eccentricities()`
 Randomly samples $N$ merger eccentricities for GC BBHs at the LIGO frequency band (10Hz).
 * **Input**:
     * `n` (int): Number of eccentricity samples to generate.
@@ -534,7 +543,7 @@ Randomly samples $N$ merger eccentricities for GC BBHs at the LIGO frequency ban
 
 **Example:**
 ```python
-gc_e_samples = LISAeccentric.GC.sample_eccentricities(
+gc_e_samples = leap.GC.sample_eccentricities(
     n=5000, channel_name='KL Triple', plot=True
 )
 print(f"   Output Shape: {np.shape(gc_e_samples)}")
@@ -550,7 +559,7 @@ print(f"   Output Shape: {np.shape(gc_e_samples)}")
 ___
 
 
-#### `LISAeccentric.GC.get_snapshot()`
+#### `leap.GC.get_snapshot()`
 Retrieves a snapshot of the GC BBH population in the Milky Way. This method supports three retrieval modes to allow for different scales of analysis (full ensemble vs. single galaxy realization).
 * **Input**:
     * `mode` (str): Data selection mode.
@@ -569,7 +578,7 @@ Retrieves a snapshot of the GC BBH population in the Milky Way. This method supp
 
 **Example:**
 ```python
-gc_data_full = LISAeccentric.GC.get_snapshot(mode='10_realizations', plot=True)
+gc_data_full = leap.GC.get_snapshot(mode='10_realizations', plot=True)
 print(f"   Output List Length: {len(gc_data_full)}")
 ```
 * **Output**:
@@ -589,7 +598,7 @@ This module models Binary Black Holes mergers formed via dynamic fly-by interact
 ___
 
 
-#### `LISAeccentric.Field.run_simulation()`
+#### `leap.Field.run_simulation()`
 Executes a Monte Carlo simulation to generate a population of fly-by mergers based on specific galactic structure and physical parameters. The results are saved to disk for subsequent analysis (sampling/snapshotting).
 
 * **Input**:
@@ -625,7 +634,7 @@ Executes a Monte Carlo simulation to generate a population of fly-by mergers bas
 
 **Example:**
 ```python
-LISAeccentric.Field.run_simulation(
+leap.Field.run_simulation(
     galaxy_type='MW',
     # Physics (Optional overrides)
     m1=10.0, m2=10.0, mp=0.6, 
@@ -643,7 +652,7 @@ The simulation engine can also model massive elliptical galaxies (e.g., M87-like
 
 **Example:**
 ```python
-LISAeccentric.Field.run_simulation(
+leap.Field.run_simulation(
     galaxy_type='Elliptical',
     # Structure (Massive Galaxy at 16.8 Mpc)
     distance_Mpc=16.8, M_gal=1.0e12, Re=8000.0,
@@ -658,7 +667,7 @@ print("   Status: Elliptical simulation saved.")
 ___
 
 
-#### `LISAeccentric.Field.get_progenitor()`
+#### `leap.Field.get_progenitor()`
 Retrieves the properties of the binary progenitors (initial states at formation) from the simulated library. These represent the system parameters right after being perturbed to high eccentricity and start evolving via GW emission. 
 
 * **Input**:
@@ -673,7 +682,7 @@ Retrieves the properties of the binary progenitors (initial states at formation)
 
 **Example:**
 ```python
-field_progs = LISAeccentric.Field.get_progenitor(galaxy_type='MW', plot=True)
+field_progs = leap.Field.get_progenitor(galaxy_type='MW', plot=True)
 print(f"   Output List Length: {len(field_progs)}")
 ```
 * **Output**:
@@ -690,7 +699,7 @@ print(f"   Output List Length: {len(field_progs)}")
 ___
 
 
-#### `LISAeccentric.Field.sample_eccentricities()`
+#### `leap.Field.sample_eccentricities()`
 Randomly samples $N$ merger eccentricities for Field BBHs at the LIGO frequency band (10Hz).
 * **Input**:
     * `n` (int): Number of eccentricity samples to generate.
@@ -701,7 +710,7 @@ Randomly samples $N$ merger eccentricities for Field BBHs at the LIGO frequency 
 
 **Example:**
 ```python
-field_e_samples = LISAeccentric.Field.sample_eccentricities(
+field_e_samples = leap.Field.sample_eccentricities(
     n=5000, galaxy_type='MW', plot=True
 )
 print(f"   Output Shape: {np.shape(field_e_samples)}")
@@ -717,7 +726,7 @@ print(f"   Output Shape: {np.shape(field_e_samples)}")
 ___
 
 
-#### `LISAeccentric.Field.get_snapshot()`
+#### `leap.Field.get_snapshot()`
 Generates a "snapshot" containing BBH systems that currently exist in the Galactic Field. These systems represent binaries that have been excited to high eccentricity via fly-by interactions and are predicted to merge within the specified future time window (`t_window_Gyr`).
 * **Input**:
     * `mode` (str, optional): Sampling mode. Default: `'single'`.
@@ -736,7 +745,7 @@ Generates a "snapshot" containing BBH systems that currently exist in the Galact
 
 **Example:**
 ```python
-field_snapshot_mw = LISAeccentric.Field.get_snapshot(
+field_snapshot_mw = leap.Field.get_snapshot(
     mode='single', t_obs=10.0, t_window_Gyr=10.0, galaxy_type='MW', plot=True
 )
 print(f"   Output List Length: {len(field_snapshot_mw)}")
@@ -758,7 +767,7 @@ This module provides a low-level functional interface to generate and analyze Ec
 ___
 
 
-#### `LISAeccentric.Waveform.compute_waveform()`
+#### `leap.Waveform.compute_waveform()`
 Generates the time-domain waveform ($h_+, h_\times$) using PN evolution model.
 
 * **Input**:
@@ -790,7 +799,7 @@ Generates the time-domain waveform ($h_+, h_\times$) using PN evolution model.
 e_val = 0.99
 init_phase = -5*np.pi * np.power(1 - e_val, 1.5)
 
-waveform_data = LISAeccentric.Waveform.compute_waveform(
+waveform_data = leap.Waveform.compute_waveform(
     # --- System Params ---
     m1_msun=10.0, m2_msun=10.0,
     a_au=0.1, e=e_val,          # <--- When input_mode= 'a_au' (default), input represents SMA: a = 1 au
@@ -804,7 +813,7 @@ waveform_data = LISAeccentric.Waveform.compute_waveform(
     plot=True, verbose=True
 )
 
-waveform_data_B = LISAeccentric.Waveform.compute_waveform(
+waveform_data_B = leap.Waveform.compute_waveform(
     m1_msun=10.0, m2_msun=10.0,
     a_au=1e-5, e=0.7,  # <--- 2nd Example: When input_mode='forb_Hz', input 'a_au' actually represents orbital frequency (f_orb =1e-5 Hz) 
     Dl_kpc=8.0, tobs_yr=0.1,
@@ -865,7 +874,7 @@ After generation, it is crucial to verify the data structure, calculate the samp
 ___
 
 
-#### `LISAeccentric.Waveform.compute_LISA_response()`
+#### `leap.Waveform.compute_LISA_response()`
 Computes the Time-Delay Interferometry (TDI) response (specifically the $X$ channel or equivalent michelson response) for the LISA constellation. This function projects the $h_+$ and $h_\times$ polarizations onto the detector arms, accounting for the antenna pattern and time delays.
 
 * **Input**:
@@ -882,7 +891,7 @@ Computes the Time-Delay Interferometry (TDI) response (specifically the $X$ chan
 
 **Example:**
 ```python
-lisa_resp = LISAeccentric.Waveform.compute_LISA_response(
+lisa_resp = leap.Waveform.compute_LISA_response(
     dt_sample_sec=dt_val_sec,
     hplus=h_plus,
     hcross=h_cross,
@@ -908,7 +917,7 @@ if lisa_resp is not None:
 ___
 
 
-#### `LISAeccentric.Waveform.compute_snr_analytical()`
+#### `leap.Waveform.compute_snr_analytical()`
 Sky-averaged SNR, assuming the source evolves slowly.
 * **Input**:
     * `m1_msun`, `m2_msun` (float): Component masses [$M_\odot$].
@@ -919,7 +928,7 @@ Sky-averaged SNR, assuming the source evolves slowly.
 * **Output**:
     * `snr` (float): Estimated SNR value.
 ```python
-snr_ana = LISAeccentric.Waveform.compute_snr_analytical(
+snr_ana = leap.Waveform.compute_snr_analytical(
     m1_msun=10.0, m2_msun=10.0,
     a_au=0.1, e=0.99,
     Dl_kpc=8.0, tobs_yr=0.5,
@@ -934,7 +943,7 @@ print(f"   [Analytical] SNR ~ {snr_ana:.4f}")
 ___
 
 
-#### `LISAeccentric.Waveform.compute_snr_numerical()`
+#### `leap.Waveform.compute_snr_numerical()`
 Computes SNR directly from the time-domain waveform array. Valid for arbitrary signals.
 * **Input**:
     * `dt_sample_sec` (float): Sampling interval [s].
@@ -944,7 +953,7 @@ Computes SNR directly from the time-domain waveform array. Valid for arbitrary s
 
 **Example:**
 ```python
-    snr_num = LISAeccentric.Waveform.compute_snr_numerical(
+    snr_num = leap.Waveform.compute_snr_numerical(
         dt_sample_sec=dt_val_sec,
         strainlist=h_plus
     )
@@ -958,7 +967,7 @@ Computes SNR directly from the time-domain waveform array. Valid for arbitrary s
 ___
 
 
-#### `LISAeccentric.Waveform.compute_inner_product()`
+#### `leap.Waveform.compute_inner_product()`
 Computes the noise-weighted inner product $\langle h_1 | h_2 \rangle$ between two time-domain waveforms using the LISA sensitivity curve $S_n(f)$. This is the fundamental operation for matched filtering, overlap calculations, and determining signal orthogonality.
 
 $$\langle h_1 | h_2 \rangle = 4 \Re \int_{f_{\min}}^{f_{\max}} \frac{\tilde{h}_1^*(f) \tilde{h}_2(f)}{S_n(f)} df$$
@@ -971,7 +980,7 @@ $$\langle h_1 | h_2 \rangle = 4 \Re \int_{f_{\min}}^{f_{\max}} \frac{\tilde{h}_1
 
 **Example:**
 ```python
-inner_prod = LISAeccentric.Waveform.compute_inner_product(
+inner_prod = leap.Waveform.compute_inner_product(
     dt_sample_sec=dt_val_sec, 
     h1=h_plus, 
     h2=h_plus
@@ -988,7 +997,7 @@ print(f"   Sqrt(Inner Product): {np.sqrt(inner_prod):.4f} (Should match Numerica
 ___
 
 
-#### `LISAeccentric.Waveform.compute_merger_time()`
+#### `leap.Waveform.compute_merger_time()`
 * **Input**:
     * `m1_msun`, `m2_msun` (float): Component masses [$M_\odot$].
     * `a0_au` (float): Initial semi-major axis [au].
@@ -998,7 +1007,7 @@ ___
 
 **Example:**
 ```python
-t_merge = LISAeccentric.Waveform.compute_merger_time(
+t_merge = leap.Waveform.compute_merger_time(
     m1_msun=10.0, m2_msun=10.0,
     a0_au=0.1, e0=0.99
 )
@@ -1012,7 +1021,7 @@ print(f"   Merger Time: {t_merge:.4e} yr")
 ___
 
 
-#### `LISAeccentric.Waveform.evolve_orbit()`
+#### `leap.Waveform.evolve_orbit()`
 * **Input**:
     * `m1_msun`, `m2_msun` (float): Component masses [$M_\odot$].
     * `a0_au` (float): Initial semi-major axis [au].
@@ -1027,7 +1036,7 @@ ___
     dt_evol = t_merge / 2.0
     print(f"   Evolving forward by {dt_evol:.2e} yr...")
 
-    a_ev, e_ev = LISAeccentric.Waveform.evolve_orbit(
+    a_ev, e_ev = leap.Waveform.evolve_orbit(
         m1_msun=10.0, m2_msun=10.0,
         a0_au=0.1, e0=0.99,
         delta_t_yr=dt_evol
@@ -1044,7 +1053,7 @@ ___
 
 
 
-#### `LISAeccentric.Waveform.compute_characteristic_strain_single()`
+#### `leap.Waveform.compute_characteristic_strain_single()`
 Computes the characteristic strain $h_c(f)$ of a single eccentric binary system. This function decomposes the signal into orbital harmonics, representing the signal strength relative to the LISA sensitivity curve in the frequency domain.
 * **Input**:
     * `m1_msun`, `m2_msun` (float): Component masses [$M_\odot$].
@@ -1063,7 +1072,7 @@ Computes the characteristic strain $h_c(f)$ of a single eccentric binary system.
 **Example:**
 ```python
 # --- 4.8 Characteristic Strain (Functional) ---
-hc_res = LISAeccentric.Waveform.compute_characteristic_strain_single(
+hc_res = leap.Waveform.compute_characteristic_strain_single(
     m1_msun=10.0, m2_msun=10.0,
     a_au=0.1, e=0.99, Dl_kpc=8.0,
     tobs_yr=0.5, plot=True
@@ -1096,7 +1105,7 @@ else:
 ___
 
 
-#### `LISAeccentric.Waveform.run_population_strain_analysis()`
+#### `leap.Waveform.run_population_strain_analysis()`
 Performs a batch characteristic strain analysis on a population of binaries. This function iterates through a list of `CompactBinary` objects, computes their individual spectra, and aggregates the results to estimate the total signal background or confusion noise.
 * **Input**:
     * `binary_list` (list): A list of `CompactBinary` objects (e.g., from `GC.get_snapshot()` or `Field.get_snapshot()`).
@@ -1113,7 +1122,7 @@ Performs a batch characteristic strain analysis on a population of binaries. Thi
 **Example:**
 ```python
 if 'gn_snapshot' in locals() and len(gn_snapshot) > 0:
-    batch_res = LISAeccentric.Waveform.run_population_strain_analysis(
+    batch_res = leap.Waveform.run_population_strain_analysis(
         binary_list=gn_snapshot, 
         tobs_yr=4.0, 
         plot=True
@@ -1147,7 +1156,7 @@ This module allows users to customize the LISA sensitivity curve used across the
 ___
 
 
-#### `LISAeccentric.Noise.generate_noise_data()`
+#### `leap.Noise.generate_noise_data()`
 Generates synthetic noise Amplitude Spectral Density (ASD) data based on a specified model.
 * **Input**:
     * `model` (str): The noise model to generate.
@@ -1160,7 +1169,7 @@ Generates synthetic noise Amplitude Spectral Density (ASD) data based on a speci
 
 **Example:**
 ```python
-f_new, asd_new = LISAeccentric.Noise.generate_noise_data(
+f_new, asd_new = leap.Noise.generate_noise_data(
     model='N2A5', f_min=1e-5, f_max=1.0
 )
 print(f"   Generated Data: {len(f_new)} points.")
@@ -1189,7 +1198,7 @@ plt.show()
 ___
 
 
-#### `LISAeccentric.Noise.update_noise_curve()`
+#### `leap.Noise.update_noise_curve()`
 Updates the global noise data used by the `Waveform` module for SNR and Inner Product calculations. (Original one will be saved automatically with index 1,2,3...)
 * **Input**:
     * `data` (list): `[frequency_array, asd_array]`.
@@ -1197,13 +1206,13 @@ Updates the global noise data used by the `Waveform` module for SNR and Inner Pr
 **Example:**
 ```python
 # Execution: Inject the new noise curve into the global system
-LISAeccentric.Noise.update_noise_curve([f_new, asd_new])
+leap.Noise.update_noise_curve([f_new, asd_new])
 ```
 
 ___
 
 
-#### `LISAeccentric.Noise.recover_noise_curve()`
+#### `leap.Noise.recover_noise_curve()`
 Reverts the global noise configuration to a previous state or a standard preset.
 * **Input**:
     * `version` (int or str):
@@ -1213,13 +1222,13 @@ Reverts the global noise configuration to a previous state or a standard preset.
           
 **Example:**
 ```python
-LISAeccentric.Noise.recover_noise_curve(version=1)
+leap.Noise.recover_noise_curve(version=1)
 ```
 
 ___
 
 
-#### `LISAeccentric.Noise.get_noise_curve()`
+#### `leap.Noise.get_noise_curve()`
 Retrieves the currently active noise data for inspection.
 * **Input**:
     * `plot` (bool, optional): If `True`, plots the current Characteristic Strain.
@@ -1228,7 +1237,7 @@ Retrieves the currently active noise data for inspection.
       
 **Example:**
 ```python
-curve_data = LISAeccentric.Noise.get_noise_curve(plot=True)
+curve_data = leap.Noise.get_noise_curve(plot=True)
 ```
 * **Output**:
 <p align="left">
@@ -1238,7 +1247,7 @@ curve_data = LISAeccentric.Noise.get_noise_curve(plot=True)
 ___
 
 
-#### `LISAeccentric.Noise.clean_backups()`
+#### `leap.Noise.clean_backups()`
 Removes all temporary noise backup files created during the session.
 
 ___
@@ -1247,5 +1256,5 @@ ___
 
 **Example:**
 ```python
-LISAeccentric.Noise.clean_backups()
+leap.Noise.clean_backups()
 ```
