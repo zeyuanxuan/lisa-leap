@@ -1,4 +1,4 @@
-# 文件路径: LISAeccentric/__init__.py
+# 文件路径: leap/__init__.py
 
 # 1. 从同级目录的 core.py 中导入核心类 以及 控制函数
 try:
@@ -27,7 +27,7 @@ getMWcatalog = _default_instance.getMWcatalog
 CompactBinary = CompactBinary
 
 # 5. 定义包的公共接口
-# 这里决定了 from LISAeccentric import * 会导入什么
+# 这里决定了 from leap import * 会导入什么
 __all__ = [
     'GN',
     'GC',
@@ -40,4 +40,4 @@ __all__ = [
     'getMWcatalog'
 ]
 
-# print("LISAeccentric package initialized successfully.")
+# print("leap package initialized successfully.")

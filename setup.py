@@ -114,7 +114,7 @@ def clean_numba_cache():
     # These often cause issues across different environments or paths
     extensions = ['*.nbc', '*.nbi']
     for ext in extensions:
-        for file_path in glob.glob(os.path.join(root_dir, 'LISAeccentric', '**', ext), recursive=True):
+        for file_path in glob.glob(os.path.join(root_dir, 'leap', '**', ext), recursive=True):
             try:
                 os.remove(file_path)
                 print(f"  - Removed cache file: {file_path}")
@@ -156,13 +156,13 @@ except FileNotFoundError:
     long_description = "A toolkit for eccentric Binary Black Hole population and waveform analysis for LISA."
 
 setup(
-    name="LISAeccentric",
+    name="lisa-leap",
     version="0.1.0",
     description="Toolbox for Eccentric BBH Populations and LISA Waveforms",
     long_description=long_description,
     long_description_content_type='text/markdown',
     author="Zeyuan",
-    author_email="your_email@example.com",  # Replace with your email
+    author_email="zeyuan.xuan.phy@gmail.com",
 
     # Automatically find all packages (directories with __init__.py)
     packages=find_packages(),
@@ -186,7 +186,7 @@ setup(
     include_package_data=True,
     package_data={
         # Explicitly include data files within sub-packages
-        'LISAeccentric': [
+        'leap': [
             'GN_modeling/data/*.npy',
             'GC_modeling/data/*.csv',
             'Field_modeling/data/*.npy',

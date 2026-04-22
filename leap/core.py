@@ -476,11 +476,11 @@ class CompactBinary:
             return [self.label, self.Dl, self.a, self.e, self.m1, self.m2, snr]
         return []
 # ==============================================================================
-# 主接口类: LISAeccentric
+# 主接口类: leap
 # ==============================================================================
 class LISAeccentric:
     """
-    LISAeccentric Unified Interface.
+    leap Unified Interface.
     Modules: GN, GC, Field, Waveform.
     """
 
