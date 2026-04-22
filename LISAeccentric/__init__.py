@@ -1,7 +1,6 @@
 import sys
 import warnings
 
-# 1. 尝试导入真正的核心包
 try:
     import leap
 except ImportError:
