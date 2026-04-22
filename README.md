@@ -32,7 +32,7 @@
 
 ## 💾 Installation
 
-You can install `lisa-leap` directly from GitHub without manually downloading or unzipping files. Please choose the method that matches your environment.
+You can install `lisa-leap` directly from GitHub. Please choose the method that matches your environment.
 
 > **Note on naming:** The distribution package name (used by `pip`) is `lisa-leap`, while the import name (used inside Python code) is `leap`.
 
