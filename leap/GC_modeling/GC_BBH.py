@@ -73,12 +73,16 @@ class _GCBBHInternalManager:
             for c in in_names:
                 if c in self.efuncdict:
                     self.merged_incluster_cdf += (self.weight_dict[c] / total_n) * self.efuncdict[c](self.loge_grid)
-
         # 2. Load MW Globular Cluster BBH snapshots (In-cluster and Ejected)
         if os.path.exists(self.pop_incluster_file):
-            self.full_population_incluster = pd.read_csv(self.pop_incluster_file).dropna().values.tolist()
+                    df_in = pd.read_csv(self.pop_incluster_file).dropna()
+                    df_in.iloc[:, 0] = df_in.iloc[:, 0].astype(str) + "_incluster"  # 加上后缀
+                    self.full_population_incluster = df_in.values.tolist()
+
         if os.path.exists(self.pop_ejected_file):
-            self.full_population_ejected = pd.read_csv(self.pop_ejected_file).dropna().values.tolist()
+                    df_ej = pd.read_csv(self.pop_ejected_file).dropna()
+                    df_ej.iloc[:, 0] = df_ej.iloc[:, 0].astype(str) + "_ejected"  # 加上后缀
+                    self.full_population_ejected = df_ej.values.tolist()
 
         self.full_population_all = self.full_population_incluster + self.full_population_ejected
 
