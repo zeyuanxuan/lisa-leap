@@ -1,4 +1,4 @@
-# LEAP: LISA Eccentricity Astrophysics Package
+# leap: LISA Eccentricity Astrophysics Package
 **Xuan et al. (2026)**
 
 ## 📖 Overview
