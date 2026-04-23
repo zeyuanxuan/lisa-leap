@@ -83,6 +83,8 @@ If you have previously installed `lisa-leap` and want to pull the latest updates
 
 ```bash
 pip install --upgrade --no-cache-dir --force-reinstall [https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip](https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip)
+```
+
 ---
 ## ⚡ Quickstart
 
