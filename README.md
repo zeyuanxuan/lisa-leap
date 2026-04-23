@@ -1132,12 +1132,12 @@ else:
 ```
 * **Output**:
     ```
-   Output: List of 5 Elements
-[0] Frequency List                           (shape: (14093,))
-  [1] Smoothed Spectrum (hc_env)               (shape: (14093,))
-  [2] Individual Harmonics (hc_insp)           (shape: (14093,))
-  [3] Non-evolving Harmonics (hc_nonevolve)    (shape: (14093,))
-  [4] Contribution to Snf                      (shape: (14093,))
+      Output: List of 5 Elements
+        [0] Frequency List                           (shape: (14093,))
+        [1] Smoothed Spectrum (hc_env)               (shape: (14093,))
+        [2] Individual Harmonics (hc_insp)           (shape: (14093,))
+        [3] Non-evolving Harmonics (hc_nonevolve)    (shape: (14093,))
+        [4] Contribution to Snf                      (shape: (14093,))
     ```
 <p align="left">
 <img src="./images/characteristic_strain.png" width="500">
