@@ -71,13 +71,6 @@ module load python/3.9.6
 python your_script.py
 ```
 
-#### Legacy Environment Support (Old GCC)
-The installer automatically detects the system compiler version. On legacy Linux systems (GCC < 5, e.g., CentOS 7 with GCC 4.8.5), it will automatically cap `numpy`, `scipy`, and `pandas` to older versions that do not require full C11 support, avoiding build errors. You can also force legacy mode manually by setting an environment variable before installation:
-```
-export LISA_LEGACY=1
-pip install --user https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip
-```
-
 #### Updating to the Latest Version
 If you have previously installed `lisa-leap` and want to pull the latest updates from the `main` branch. To force a clean reinstallation, add the `--upgrade`, `--no-cache-dir`, and `--force-reinstall` flags:
 
@@ -88,7 +81,7 @@ pip install --upgrade --no-cache-dir --force-reinstall "https://github.com/zeyua
 ---
 ## ⚡ Quickstart
 
-Once `lisa-leap` is installed, the snippet below walks through the most common workflow end-to-end: build a Milky Way catalog, pick one binary from it, and then run the full signal-analysis pipeline (waveform → spectrum → characteristic strain → SNR) on that single source.
+Once `lisa-leap` is installed, you can walk through the most common workflow below: build a Milky Way catalog, pick one binary from it, and then run the full signal-analysis pipeline (waveform → spectrum → characteristic strain → SNR) on that single source.
 
 ```python
 import numpy as np
