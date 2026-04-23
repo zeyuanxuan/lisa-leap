@@ -226,6 +226,84 @@ class CompactBinary:
         return wf
 
     @mute_if_global_verbose_false
+    def get_spectrum(self, tobs_yr, ts=None, polarization='hplus',
+                     theta=np.pi / 4, phi=np.pi / 4,
+                     initial_orbital_phase=0,
+                     PN_orbit=3, PN_reaction=2,
+                     points_per_peak=50, max_memory_GB=16.0,
+                     plot=True, verbose=True):
+        """
+        自动生成波形并计算数值特征应变谱 (hc, num)。
+
+        Args:
+            tobs_yr (float): 观测时间 (years)。
+            ts (float, optional): 采样时间步长 (seconds)。若为 None 则使用自适应采样。
+            polarization (str): 选取的极化分量，'hplus' 或 'hcross'。
+            theta, phi (float): 观测方位角。
+            plot (bool): 是否绘制与 LISA 噪声曲线的对比图。
+            verbose (bool): 是否打印运行信息。
+
+        Returns:
+            (xs, hc_num): 频率轴和数值特征应变谱。
+        """
+        if verbose:
+            print(f"\n[CompactBinary] Computing Numerical Spectrum for {self.label}...")
+            print(f"                Polarization: {polarization}, Tobs: {tobs_yr} yr")
+
+        # 1. 生成波形 (强制 plot=False，避免在此处弹出时域波形图)
+        wf = self.compute_waveform(
+            tobs_yr=tobs_yr,
+            initial_orbital_phase=initial_orbital_phase,
+            theta=theta,
+            phi=phi,
+            PN_orbit=PN_orbit,
+            PN_reaction=PN_reaction,
+            ts=ts,
+            points_per_peak=points_per_peak,
+            max_memory_GB=max_memory_GB,
+            verbose=verbose,
+            plot=False
+        )
+
+        if wf is None or len(wf[0]) < 2:
+            print("[Error] Waveform generation failed or returned too few points.")
+            return np.array([]), np.array([])
+
+        t_arr, hplus, hcross = wf
+
+        # 2. 提取实际使用的采样率 fs = 1/dt
+        dt_actual = t_arr[1] - t_arr[0]
+        if dt_actual <= 0:
+            print("[Error] Invalid time step in generated waveform.")
+            return np.array([]), np.array([])
+
+        fs = 1.0 / dt_actual
+
+        if verbose and ts is None:
+            print(f"                [Adaptive] Extracted fs = {fs:.2f} Hz (dt = {dt_actual:.4e} s)")
+
+        # 3. 选择极化分量
+        if polarization.lower() == 'hplus':
+            h_target = hplus
+        elif polarization.lower() == 'hcross':
+            h_target = hcross
+        else:
+            print(f"[Warning] Unknown polarization '{polarization}', defaulting to 'hplus'.")
+            h_target = hplus
+
+        # 4. 调用底层的数值特征应变计算器
+        xs, hc_num = PN_waveform.compute_characteristic_strain_numerical(
+            h_t=h_target,
+            ts=fs,
+            plot=plot
+        )
+
+        # # (可选) 将结果存储在 extra 字典中以备后续查阅
+        # self.extra['hc_num_f'] = xs
+        # self.extra['hc_num_val'] = hc_num
+
+        return xs, hc_num
+    @mute_if_global_verbose_false
     def compute_snr_analytical(self, tobs_yr, quick_analytical=False, verbose=True):
         """
         Compute Sky-Averaged SNR (Analytical).
@@ -1135,6 +1213,22 @@ class LISAeccentric:
                 verbose=verbose
             )
             return results
+
+        @mute_if_global_verbose_false
+        def compute_characteristic_strain_numerical(self, h_t, ts, plot=False):
+            """
+            Calculate the numerical characteristic strain spectrum (hc,num) from a waveform.
+
+            :param h_t: Time-domain waveform strain sequence (array/list).
+            :param ts: Sampling rate in Hz (1/dt).
+            :param plot: Whether to plot the result against the LISA noise curve.
+            :return: (xs, hc_num) - Frequency axis and characteristic strain spectrum.
+            """
+            print(f"[Analysis] Computing numerical characteristic strain (fs={ts} Hz)...")
+
+            # 直接调用 PN_waveform 中写好的底层逻辑
+            return PN_waveform.compute_characteristic_strain_numerical(h_t, ts, plot=plot)
+
         @mute_if_global_verbose_false
         def run_population_strain_analysis(self, binary_list: List[Any], tobs_yr, plot=True):
             """

@@ -352,7 +352,7 @@ def _core_calculator(args):
 
 
 # ==========================================
-# 3. 封装接口
+# 3. 封装接口 (部分)
 # ==========================================
 
 def calculate_single_system(m1, m2, a, e, Dl, tobs=1.0*years, target_max_points=20000, verbose=True):
@@ -370,7 +370,65 @@ def calculate_single_system(m1, m2, a, e, Dl, tobs=1.0*years, target_max_points=
     args = (m1_si, m2_si, a_si, e, Dl_si, tobs_si, target_max_points, verbose)
     fn, hnc, hc_avg, snf = _core_calculator(args)
 
-    return [fn, hc_avg, hnc, snf]
+    # [新增] 计算 individual harmonic representation (hc,non-evolve)
+    if len(fn) > 0:
+        # 重构 f_orb (基于开普勒第三定律，与 _core_calculator 内部一致)
+        forb = 1 / 2 / pi * np.sqrt(m1_si + m2_si) * np.power(a_si, -3.0 / 2.0)
+        # 根据定义: hc,non-evolve = hc,env * sqrt(forb / f)
+        hc_non_evolve = hc_avg * np.sqrt(forb / fn)
+    else:
+        hc_non_evolve = []
+
+    # 按要求：将 hc_non_evolve 放在紧接着 hnc 的后面
+    return [fn, hc_avg, hnc, hc_non_evolve, snf]
+
+
+# [新增功能] 4. 单个系统绘图 (部分)
+# ==========================================
+def plot_single_system_results(single_system_res, xlim=[1e-6, 1], ylim=[1e-23, 1e-14]):
+    """
+    接口4: 单个系统绘图
+    输入: single_system_res (calculate_single_system 的返回值)
+    """
+    fn = single_system_res[0]
+    hc_avg = single_system_res[1]
+    hnc = single_system_res[2]            # hc,insp (Scatter)
+    hc_non_evolve = single_system_res[3]  # [新增] hc,non-evolve (Scatter)
+    # Snf = single_system_res[4]          # 索引因为插入新变量而后移一位
+
+    # 生成 LISA 噪声曲线用于背景对比
+    f_lisa = np.logspace(np.log10(xlim[0]), np.log10(xlim[1]), 1000)
+    hc_lisa = np.sqrt(f_lisa * S_n_lisa(f_lisa))
+
+    plt.figure(figsize=(10, 7), dpi=100)
+
+    # 1. Plot LISA Noise
+    plt.plot(f_lisa, hc_lisa, color='black', linewidth=2, label='LISA Sensitivity ($\sqrt{f S_n(f)}$)')
+
+    # 2. Plot hc_avg (Curve)
+    if len(fn) > 0:
+        plt.plot(fn, hc_avg, color='blue', linewidth=1.5, label=r'$h_{c, \mathrm{avg}} = \sqrt{2f^2h_n^2/f_{\rm orb} \times T_{\rm obs}}$ (Time-integrated spectrum - enclosed area reflects SNR)')
+
+    # 3. Plot hc_scatter (Scatter points for evolving representation)
+    if len(fn) > 0:
+        plt.scatter(fn, hnc, color='red', s=4, alpha=0.7, zorder=5, label=r'$h_{c, n} = \sqrt{2f^2h_n^2/\dot{f}}$ (Instantaneous hc value for each harmonic)')
+
+    # 4. [新增] Plot hc_non_evolve (Scatter points for non-evolving representation)
+    if len(fn) > 0:
+        # 使用绿色区分另外两种 representation
+        plt.scatter(fn, hc_non_evolve, color='green', s=4, alpha=0.7, zorder=6, label=r'$h_{c, \rm non-evolve} = \sqrt{2 h_n^2 f T_{\rm obs}}$ (Non-evolving harmonic representation)')
+
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel('Frequency [Hz]', fontsize=14)
+    plt.ylabel('Characteristic Strain $h_c$', fontsize=14)
+    plt.xlim(xlim)
+    plt.ylim(ylim)
+    plt.grid(True, which="both", ls="--", alpha=0.3)
+    plt.legend(fontsize=12, loc='upper left')
+    plt.title('Single Eccentric Binary Spectrum', fontsize=16)
+    plt.tight_layout()
+    plt.show()
 
 
 def process_population_batch(system_list_raw, tobs=1.0*years, n_cores=1, target_max_points=1000):
@@ -430,46 +488,46 @@ def process_population_batch(system_list_raw, tobs=1.0*years, n_cores=1, target_
 
     return [faxis, Snf_tot, all_fn_lists, all_hcavg_lists, all_hnc_lists]
 
-# [新增功能] 4. 单个系统绘图
-# ==========================================
-def plot_single_system_results(single_system_res, xlim=[1e-6, 1], ylim=[1e-23, 1e-14]):
-    """
-    接口4: 单个系统绘图
-    输入: single_system_res (calculate_single_system 的返回值)
-    """
-    fn = single_system_res[0]
-    hc_avg = single_system_res[1]
-    hnc = single_system_res[2]  # This is scatter
-    # Snf = single_system_res[3]
-
-    # 生成 LISA 噪声曲线用于背景对比
-    f_lisa = np.logspace(np.log10(xlim[0]), np.log10(xlim[1]), 1000)
-    hc_lisa = np.sqrt(f_lisa * S_n_lisa(f_lisa))
-
-    plt.figure(figsize=(10, 7), dpi=100)
-
-    # 1. Plot LISA Noise
-    plt.plot(f_lisa, hc_lisa, color='black', linewidth=2, label='LISA Sensitivity ($\sqrt{f S_n(f)}$)')
-
-    # 2. Plot hc_avg (Curve)
-    if len(fn) > 0:
-        plt.plot(fn, hc_avg, color='blue', linewidth=1.5, label=r'$h_{c, \mathrm{avg}} = \sqrt{2f^2h_n^2/f_{\rm orb} \times T_{\rm obs}}$ (Time-integrated spectrum - enclosed area reflects SNR)')
-
-    # 3. Plot hc_scatter (Scatter points)
-    if len(fn) > 0:
-        plt.scatter(fn, hnc, color='red', s=4, alpha=0.7, zorder=5, label=r'$h_{c, n} = \sqrt{2f^2h_n^2/\dot{f}}$ (Instantaneous hc value for each harmonic)')
-
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.xlabel('Frequency [Hz]', fontsize=14)
-    plt.ylabel('Characteristic Strain $h_c$', fontsize=14)
-    plt.xlim(xlim)
-    plt.ylim(ylim)
-    plt.grid(True, which="both", ls="--", alpha=0.3)
-    plt.legend(fontsize=12, loc='upper left')
-    plt.title('Single Eccentric Binary Spectrum', fontsize=16)
-    plt.tight_layout()
-    plt.show()
+# # [新增功能] 4. 单个系统绘图
+# # ==========================================
+# def plot_single_system_results(single_system_res, xlim=[1e-6, 1], ylim=[1e-23, 1e-14]):
+#     """
+#     接口4: 单个系统绘图
+#     输入: single_system_res (calculate_single_system 的返回值)
+#     """
+#     fn = single_system_res[0]
+#     hc_avg = single_system_res[1]
+#     hnc = single_system_res[2]  # This is scatter
+#     # Snf = single_system_res[3]
+#
+#     # 生成 LISA 噪声曲线用于背景对比
+#     f_lisa = np.logspace(np.log10(xlim[0]), np.log10(xlim[1]), 1000)
+#     hc_lisa = np.sqrt(f_lisa * S_n_lisa(f_lisa))
+#
+#     plt.figure(figsize=(10, 7), dpi=100)
+#
+#     # 1. Plot LISA Noise
+#     plt.plot(f_lisa, hc_lisa, color='black', linewidth=2, label='LISA Sensitivity ($\sqrt{f S_n(f)}$)')
+#
+#     # 2. Plot hc_avg (Curve)
+#     if len(fn) > 0:
+#         plt.plot(fn, hc_avg, color='blue', linewidth=1.5, label=r'$h_{c, \mathrm{avg}} = \sqrt{2f^2h_n^2/f_{\rm orb} \times T_{\rm obs}}$ (Time-integrated spectrum - enclosed area reflects SNR)')
+#
+#     # 3. Plot hc_scatter (Scatter points)
+#     if len(fn) > 0:
+#         plt.scatter(fn, hnc, color='red', s=4, alpha=0.7, zorder=5, label=r'$h_{c, n} = \sqrt{2f^2h_n^2/\dot{f}}$ (Instantaneous hc value for each harmonic)')
+#
+#     plt.xscale('log')
+#     plt.yscale('log')
+#     plt.xlabel('Frequency [Hz]', fontsize=14)
+#     plt.ylabel('Characteristic Strain $h_c$', fontsize=14)
+#     plt.xlim(xlim)
+#     plt.ylim(ylim)
+#     plt.grid(True, which="both", ls="--", alpha=0.3)
+#     plt.legend(fontsize=12, loc='upper left')
+#     plt.title('Single Eccentric Binary Spectrum', fontsize=16)
+#     plt.tight_layout()
+#     plt.show()
 
 def plot_simulation_results0(simulation_result_list,xlim=[1e-6,1],ylim=[1e-24, 1e-15]):
     """

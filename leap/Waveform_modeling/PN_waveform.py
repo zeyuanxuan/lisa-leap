@@ -2314,84 +2314,65 @@ def inner_product(fs, waveform1, waveform2, phic, snf=None):
     return ABval
 
 
+def compute_characteristic_strain_numerical(h_t, ts, plot=False):
+    """
+    计算数值波形的特征应变谱 (Characteristic Strain Spectrum, hc,num)
+    """
+    import scipy.fftpack
+    import matplotlib.pyplot as plt
 
+    h_t = np.asarray(h_t)
+    num1 = len(h_t)
 
+    if num1 < 2:
+        print("[Error] Waveform is too short to compute FFT.")
+        return np.array([]), np.array([])
 
+    dt = 1.0 / ts
+    tobs_sec = num1 * dt
 
+    # 1. 生成频率轴 (仅取正半轴)
+    xs = np.arange(num1 // 2) * (ts / num1)
 
+    # 2. FFT 计算
+    hf = scipy.fftpack.fft(h_t)
+    hf_abs = np.abs(hf)
 
+    # 3. 归一化幅度与特征应变计算
+    hN = (2.0 / num1) * hf_abs[0:num1 // 2]
+    hc_num = hN * np.sqrt(xs * tobs_sec)
 
+    # 4. 绘图对比
+    if plot:
+        fig, ax = plt.subplots(1, 1, figsize=(8, 6), dpi=100)
 
+        f_min_plot = max(1e-6, xs[1]) if len(xs) > 1 else 1e-6
+        f_max_plot = xs[-1] if len(xs) > 1 else 0.1
+        f_noise = np.logspace(np.log10(f_min_plot), np.log10(f_max_plot), 1000)
 
+        # 调用当前文件内的 S_n_lisa
+        try:
+            Snf_vals = S_n_lisa(f_noise)
+        except Exception:
+            Snf_vals = np.array([S_n_lisa(f) for f in f_noise])
 
-#
-# if __name__ == '__main__':
-#     Tobs = 1 * years
-#     fmax = 0.1
-#     fmin = 0  # 1e-5
-#     N = int(fmax * Tobs)
-#     f0 = fmax / N
-#     print('tobs [d]', Tobs / days, 'N', N, 'f0', f0)
-#     timelist = np.linspace(0, Tobs, 2 * N - 1)
-#
-#     a0 = 0.01506869 * AU  # 0.1*AU#float(aeinfo[0])
-#     e0 = 0.9060675000000001  # 0.96679136  # 0.999#float(aeinfo[1])
-#     Dl = 8  # kpc
-#     theta = 2.6590048427983772
-#     phi = 5.4323352960796045
-#     psi = 1.8857738911294881
-#     theta2 = pi / 2  # 2.799259746842798#GWsource frame Line of sight direction
-#     phi2 = pi / 4  # 1.7382600210381554
-#     m1 = 8.255 * m_sun
-#     m2 = 21.29 * m_sun
-#     M = m1 + m2  # 29.532425000000003 * m_sun  #
-#     q = min(m1, m2) / max(m1, m2)  # 0.8463054136069103  #
-#     f00 = np.sqrt(M / (4 * pi * pi * np.power(a0, 3.0)))  #
-#     # print(f00, '!')
-#     t0 = 100  # 1 / f00 * np.power(1 - e0, 3 / 2)
-#     parameternames = ['theta', 'phi', 'psi', 'forb', '1-e', 'M', 'q', 'thetatwo', 'phitwo', 't0', 'Dl']  # fakeDl
-#
-#     print('SNR', SNR(m1 / m_sun, m2 / m_sun, a0 / AU, e0, Dl, Tobs / years),
-#           SNR_approx(m1 / m_sun, m2 / m_sun, a0 / AU, e0, Dl * 1e3 * pc, Tobs))
-#
-#     print('tmerger (yr)', tmerger_integral(m1 / m_sun, m2 / m_sun, a0 / AU, e0), tmerger_lower(m1, m2, a0, e0) / years)
-#
-#     Dim = len(parameternames)
-#
-#     tlist = timelist
-#     parametervalue = [theta, phi, psi, f00, 1 - e0, M, q, theta2, phi2, t0, Dl]  # last item fakeDl, in the unit of kpc
-#
-#     a = time.time()
-#     # eccGW_waveform 内部逻辑正确，但注意它是否期待无量纲 mass？
-#     # 看代码开头: m1=m1*m_sun
-#     # 所以必须传入无量纲 Mass (m1/m_sun)
-#     hn1 = eccGW_waveform(f00, e0, Tobs / years, M / (1 + q) / m_sun, M * q / (1 + q) / m_sun, theta2, phi2, Dl)
-#     # hn1 = compute_LISA_response(hn1[0],hn1[1],hn1[2],pi/4,pi/4,pi/4)
-#     b = time.time()
-#
-#     # hn3 = eccGW_waveform(f00,e0,Tobs,M / (1 + q), M * q / (1 + q),theta2,phi2,Dl*1e3*pc)
-#     c = time.time()
-#
-#     # [Fix] 移除 .run()，直接调用
-#     if len(hn1[0]) > 1:
-#         SNR2 = np.sqrt(inner_product(1 / (hn1[0][1] - hn1[0][0]), hn1[1], hn1[1], 0))
-#     else:
-#         SNR2 = 0
-#         print("Waveform failed generation or too short.")
-#
-#     # hn3 = detectorresponse(parametervalue,tlist)
-#     d = time.time()
-#
-#     ee = time.time()
-#     print(b - a, c - b, d - c, 's')
-#     if len(hn1[0]) > 0:
-#         plt.plot(hn1[0], hn1[1], color='BLUE', label='NEW')
-#         # plt.plot(hn4[0], hn4[1], color='RED', linestyle='--', label='ORIGINAL')
-#         # plt.plot(hn3[0], hn3[1], color='ORANGE', linestyle=':', label='OLD')
-#         # plt.plot(hn4[0], hn4[1], color='BLACK', linestyle='-.', label='OLD')
-#         plt.legend()
-#         plt.xlabel("t [s]", fontsize=14)
-#         plt.ylabel("h", fontsize=14)
-#         plt.show()
-#
-#     print(SNR2)
+        hc_noise = np.sqrt(f_noise * Snf_vals)
+
+        ax.loglog(f_noise, hc_noise, color='black', label='LISA Noise', zorder=1)
+        # 跳过 f=0 的直流分量
+        ax.loglog(xs[1:], hc_num[1:], color='blue', label=r'Numerical $h_{c, \rm num}$', zorder=2)
+
+        ax.set_xlim(f_min_plot, f_max_plot)
+        ax.set_ylim(1e-24, 5e-18)
+
+        ax.set_xlabel(r'$f$ [Hz]', fontsize=18)
+        ax.set_ylabel(r'$h_c(f)$', fontsize=18)
+        ax.legend(fontsize=12, loc='upper right', framealpha=1, edgecolor='k')
+        ax.tick_params(axis='both', which='major', labelsize=14, direction='in')
+        ax.tick_params(axis='both', which='minor', direction='in')
+        plt.grid(True, which="both", ls="--", alpha=0.2)
+
+        plt.tight_layout()
+        plt.show()
+
+    return xs, hc_num
