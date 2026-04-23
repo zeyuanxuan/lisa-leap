@@ -571,7 +571,7 @@ class LISAeccentric:
     # ==========================================================================
     class _GN_Handler:
             @mute_if_global_verbose_false
-            def sample_eccentricities(self, n_samples=5000, max_bh_mass=50, plot=True):
+            def sample_eccentricities(self, n_samples=5000, max_bh_mass=100, plot=True):
                 """Feature 1: Randomly sample N merger eccentricities (LIGO Band 10Hz)."""
                 print(f"\n[GN] Sampling {n_samples} merger eccentricities (max_mass={max_bh_mass})...")
                 e_samples = GN_BBH.generate_random_merger_eccentricities(n=n_samples, max_bh_mass=max_bh_mass)
@@ -617,7 +617,7 @@ class LISAeccentric:
                 return objs
 
             @mute_if_global_verbose_false
-            def get_snapshot(self, rate_gn=2.0, age_ync=6.0e6, n_ync_sys=100, max_bh_mass=50, plot=True) -> List[
+            def get_snapshot(self, rate_gn=2.0, age_ync=6.0e6, n_ync_sys=100, max_bh_mass=100, plot=True) -> List[
                 CompactBinary]:
                 """Feature 3: Snapshot Generation (LISA Band / Current State)."""
                 print(f"\n[GN] Generating Snapshot: Rate={rate_gn}/Myr, YNC Age={age_ync / 1e6} Myr")
@@ -1906,14 +1906,15 @@ def _print_catalog_config(tobs_yr, include_field_bkg, bkg_pct):
 
 
 # ==============================================================================
-# getMWcatalog (refactored: Pre-loaded GN/Field, Fast SNR Scaling)
+# getMWcatalog (refactored: Pre-loaded GN/Field, Fast SNR Scaling + Strict Mode)
 # ==============================================================================
 @mute_if_global_verbose_false
-def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_yr=10.0):
+def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_yr=10.0, strict_snr=False):
     """
     Generate and optionally plot a full Milky Way GW Population Catalog.
     Combines populations from Galactic Nucleus (GN), Globular Clusters (GC), and Field.
-    SNR is extremely fast-scaled based on pre-computed 10-year baseline data.
+    SNR is fast-scaled based on pre-computed 10-year baseline data by default.
+    If strict_snr=True, computes the full harmonic integration SNR from scratch and compares it.
     """
     import os
     import random
@@ -1924,10 +1925,11 @@ def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_y
 
     # --- 0. Print the configuration upfront ---------------------------------
     _print_catalog_config(tobs_yr, include_field_bkg, bkg_pct)
+    if strict_snr:
+        print(f"  [!] STRICT SNR MODE ENABLED: Will recompute full harmonic SNR for all sources.")
+        print("-" * 64)
 
     all_binaries = []
-
-    # 统一定义当前路径，方便后面读取 npy 文件
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # --- 1. GN (Galactic Nucleus) -------------------------------------------
@@ -1953,7 +1955,6 @@ def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_y
                     gn_added = 0
                     if len(all_gn_rows) > 0:
                         num_gn = max(1, len(all_gn_rows) // gn_sample_divisor)
-                        # 防止由于样本太少导致 num_gn 大于总体数量报错
                         num_gn = min(num_gn, len(all_gn_rows))
                         sampled_gn = random.sample(all_gn_rows, num_gn)
 
@@ -1976,7 +1977,6 @@ def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_y
     if hasattr(self, 'GC'):
         with _Spinner("Sampling GC population") as sp:
             with _silence_stdout():
-                # mode='single' 会返回底层 CSV 星表 1/10 的数据，底层已自带 SNR
                 gc_pops = self.GC.get_snapshot(
                     mode='single', channel='all', plot=False
                 )
@@ -2027,41 +2027,70 @@ def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_y
     else:
         print(f"[Catalog] ⚠️  Warning: Field file not found at {target_file_field}. Skipping.")
 
-    # --- 4. Fast SNR Scaling -------------------------------------------------
+    # --- 4. SNR Scaling / Strict Recomputation -------------------------------
     formatted_catalog = []
     seen_gc_ae = set()
     total = len(all_binaries)
 
-    with _Spinner(f"Scaling SNR for {total} systems (tobs = {tobs_yr} yr)") as sp:
+    # 统计对比数据
+    diff_stats = []
+
+    process_msg = f"Computing strict SNR for {total} systems" if strict_snr else f"Scaling SNR for {total} systems (tobs = {tobs_yr} yr)"
+    with _Spinner(process_msg) as sp:
         with _silence_stdout():
-            # 利用解析关系：SNR 与观测时间的平方根成正比
-            # 基准时间为 10 年，计算缩放因子
             snr_scale_factor = np.sqrt(tobs_yr / 10.0)
 
             for idx, b in enumerate(all_binaries, start=1):
-                # 提取对象在生成/读取时自动挂载的 10 年基准 SNR
                 base_snr = b.extra.get('snr', 0.0)
+                snr_fast = base_snr * snr_scale_factor
 
-                # 乘上缩放系数得到用户所需时长的真实 SNR
-                snr_v = base_snr * snr_scale_factor
+                # 默认使用快速缩放的值
+                snr_final = snr_fast
 
-                # 同步更新 extra 字典中的 snr
-                b.extra['snr'] = snr_v
+                if strict_snr:
+                    # 严格重算全谐波积分 SNR
+                    snr_strict = b.compute_snr_analytical(tobs_yr=tobs_yr, quick_analytical=False, verbose=False)
+                    snr_final = snr_strict
 
-                # Deduplicate low-SNR GC points with identical (a, e)
-                if b.label == "GC" and snr_v < 0.1:
+                    # 记录误差 (剔除原本就是极小噪声的干扰)
+                    if snr_strict > 1e-3 or snr_fast > 1e-3:
+                        diff = abs(snr_strict - snr_fast)
+                        diff_stats.append({
+                            'diff': diff,
+                            'label': b.label,
+                            'strict': snr_strict,
+                            'fast': snr_fast
+                        })
+
+                b.extra['snr'] = snr_final
+
+                if b.label == "GC" and snr_final < 0.1:
                     ae_tuple = (b.a, b.e)
                     if ae_tuple in seen_gc_ae:
                         continue
                     seen_gc_ae.add(ae_tuple)
 
                 formatted_catalog.append(
-                    [b.label, b.m1, b.m2, b.a, b.e, b.Dl, snr_v, b.extra]
+                    [b.label, b.m1, b.m2, b.a, b.e, b.Dl, snr_final, b.extra]
                 )
 
-                # 更新进度条
                 if idx % 50 == 0 or idx == total:
                     sp.update(f"({idx}/{total})")
+
+    # --- 4.5 Print Strict SNR Report ---
+    if strict_snr and diff_stats:
+        max_err_item = max(diff_stats, key=lambda x: x['diff'])
+        mean_err = np.mean([x['diff'] for x in diff_stats])
+        large_errors = sum(1 for x in diff_stats if x['diff'] > 1.0)
+
+        print("\n" + "-" * 64)
+        print(f"📊 SNR COMPUTATION REPORT (Strict vs Fast-Scale)")
+        print("-" * 64)
+        print(f"  • Mean absolute error : {mean_err:.4f}")
+        print(f"  • Systems w/ error > 1: {large_errors} / {len(diff_stats)}")
+        print(
+            f"  • Max error observed  : {max_err_item['diff']:.2f} (Strict: {max_err_item['strict']:.2f}, Fast: {max_err_item['fast']:.2f}) [Source: {max_err_item['label']}]")
+        print("-" * 64)
 
     # --- 5. Evaporated population (optional) --------------------------------
     if include_evaporated:
@@ -2070,8 +2099,6 @@ def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_y
                 evap_systems = _run_evaporation_simulation(pct=evap_pct)
             for es in evap_systems:
                 es[7]['source_label'] = 'Evaporated_Field'
-                # 这里的蒸发星族通常作为背景对比，如果原生成函数自带 SNR 也可以同样缩放，
-                # 但由于它们大部分在 mHz 频段根本不可见，这里保留你原本的直接附加逻辑即可。
             formatted_catalog.extend(evap_systems)
             sp.update(f"({len(evap_systems)} systems)")
 

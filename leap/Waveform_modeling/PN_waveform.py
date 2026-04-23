@@ -2364,8 +2364,8 @@ def compute_characteristic_strain_numerical(h_t, ts, plot=False):
         # 绘制信号数值特征应变 (使用信号自带的频率轴 xs，并跳过 f=0 的直流分量)
         ax.loglog(xs[1:], hc_num[1:], color='blue', label=r'Numerical $h_{c, \rm num}$', zorder=2)
 
-        ax.set_xlim(1e-7, 0.1)
-        ax.set_ylim(1e-24, 5e-18)
+        ax.set_xlim(1e-5, 0.1)
+        ax.set_ylim(1e-24, 1e-17)
 
         ax.set_xlabel(r'$f$ [Hz]', fontsize=18)
         ax.set_ylabel(r'$h_c(f)$', fontsize=18)
