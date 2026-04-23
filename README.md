@@ -84,13 +84,7 @@ pip install --upgrade --no-cache-dir --force-reinstall "https://github.com/zeyua
 Once `lisa-leap` is installed, you can walk through the most common workflow below: build a Milky Way catalog, pick one binary from it, and then run the full signal-analysis pipeline (waveform → spectrum → characteristic strain → SNR) on that single source.
 
 ```python
-import numpy as np
 import leap
-
-# Silence verbose per-iteration prints and RuntimeWarnings from the
-# internal numerical routines.  (You can toggle this back on any time with
-# leap.set_output_control(verbose=True, show_warnings=True).)
-leap.set_output_control(verbose=False, show_warnings=False)
 
 # -----------------------------------------------------------------
 # 1. Generate a Milky Way eccentric-GW source catalog (Running this step may take some time)
