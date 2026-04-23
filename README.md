@@ -139,13 +139,12 @@ For deeper control — custom populations, LISA-response projection, noise-curve
 ---
 ## 🚀 If you simply want to get a catalog...
 
-If you just need a ready-to-use Milky Way eccentric gravitational wave source catalog without using the detailed functions of simulation and waveform analysis, you can use the all-in-one `getMWcatalog()` function.
+> **📥 Pre-generated catalog available:** If you don't want to run the generator yourself, a pre-computed catalog of 10 Milky Way realizations is shipped with the repository as `MW_BBH_catalog_10realizations.csv` and can be downloaded directly from the GitHub page. Each row follows the same schema as the `getMWcatalog()` return value (see below), so you can load it with `pandas` or `numpy` and plug the rows into `CompactBinary.from_list(row, schema='snapshot_std')` for downstream analysis.
 
-This feature randomly generates snapshot populations from all three formation environments in the Milky Way (Galactic Nuclei, Globular Clusters, and the Galactic Field), calculates their analytical SNRs, and visualizes the entire population in a single scatter plot.
+Or, you can use the all-in-one `getMWcatalog()` function.
 
-> **📥 Pre-generated catalog available:** If you don't want to run the generator yourself, a pre-computed catalog of 10 Milky Way realizations is shipped with the repository as `MW_BBH_catalog_10realizations.csv` and can be downloaded directly from the [GitHub page](https://github.com/zeyuanxuan/lisa-leap). Each row follows the same schema as the `getMWcatalog()` return value (see below), so you can load it with `pandas` or `numpy` and plug the rows into `CompactBinary.from_list(row, schema='snapshot_std')` for downstream analysis.
+This feature randomly generates snapshot populations from all three formation environments in the Milky Way (Galactic Nuclei, Globular Clusters, and the Galactic Field), estimates their analytical SNRs, and visualizes the entire population in a single scatter plot.
 
-> **Note on internal defaults:** For convenience, `getMWcatalog()` internally calls `GN.get_snapshot()` with a more optimistic set of defaults (`rate_gn=3.0`, `age_ync=3.0e6`, `max_bh_mass=100.0`) than the standalone `GN.get_snapshot()` function. If you need full control over these parameters, call the individual module functions in §3 instead.
 
 #### `leap.getMWcatalog()`
 * **Input**:
