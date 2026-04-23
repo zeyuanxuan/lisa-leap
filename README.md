@@ -359,30 +359,19 @@ Computes the characteristic strain spectrum ($h_c$) for the binary system. This 
         * `[0] freq`: Frequency list [Hz].
 
         * `[1] hc_spectrum`: Smoothed spectrum representation ($h_{c,\mathrm{env}}(f)$).  
-          Formula:  
-          $$
-          h_{c,\mathrm{env}} = \sqrt{2}\, h_n \sqrt{f\, T_{\mathrm{obs}}} \sqrt{\frac{f}{f_{\mathrm{orb}}}}
-          $$
+          Formula: $h_{c,\mathrm{env}} = \sqrt{2}\, h_n \sqrt{f\, T_{\mathrm{obs}}} \sqrt{f / f_{\mathrm{orb}}}$.  
           This continuous envelope redistributes the power of discrete harmonics over frequency space so that the area between it and the noise curve in a log-log plot directly reflects the integrated SNR.
 
         * `[2] hc_harmonics`: Individual harmonic representation ($h_{c,\mathrm{insp}}$).  
-          Formula:  
-          $$
-          h_{c,\mathrm{insp}} = \sqrt{2}\, h_n \sqrt{\frac{f^2}{\dot{f}}}
-          $$
+          Formula: $h_{c,\mathrm{insp}} = \sqrt{2}\, h_n \sqrt{f^2 / \dot{f}}$.  
           This represents the pre-integration (evolving) characteristic strain amplitude of individual harmonics.
 
-        * `[3] hc_non_evolve`: Non-evolving / discrete harmonic representation ($h_{c,\mathrm{non\mbox{-}evolve}}$).  
-          Formula:  
-          $$
-          h_{c,\mathrm{non\mbox{-}evolve}} = \sqrt{2}\, h_n \sqrt{f\, T_{\mathrm{obs}}}
-          $$
+        * `[3] hc_non_evolve`: Non-evolving / discrete harmonic representation ($h_{c,\mathrm{non-evolve}}$).  
+          Formula: $h_{c,\mathrm{non-evolve}} = \sqrt{2}\, h_n \sqrt{f\, T_{\mathrm{obs}}}$.  
           This represents the post-integration peak height of each discrete harmonic assuming $\dot{f} \to 0$.
 
-          In practice, $h_{c,\mathrm{insp}}$ and $h_{c,\mathrm{non\mbox{-}evolve}}$ are combined as:
-          $$
-          h_c = \sqrt{2}\, h_n \sqrt{ \min \left\{ \frac{f^2}{\dot{f}},\; f\, T_{\mathrm{obs}} \right\} }
-          $$
+          In practice, they are combined as:  
+          $h_c = \sqrt{2}\, h_n \sqrt{ \min\{ f^2 / \dot{f},\; f\, T_{\mathrm{obs}} \} }$.
 
         * `[4] snr_contrib`: Contribution to the noise power spectral density $S_n(f)$ at harmonic frequencies.
   
