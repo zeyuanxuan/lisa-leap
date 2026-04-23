@@ -264,7 +264,7 @@ class CompactBinary:
             ts=ts,
             points_per_peak=points_per_peak,
             max_memory_GB=max_memory_GB,
-            verbose=verbose,
+            verbose=False,
             plot=False
         )
 
