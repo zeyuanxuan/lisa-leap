@@ -341,6 +341,56 @@ wf_data_obj = my_binary.compute_waveform(
 
 ___
 
+#### `.get_spectrum()`
+
+Automatically generates the time-domain waveform for the binary system and computes its **numerical spectrum representation** ($h_{c, \mathrm{num}}$) via Fast Fourier Transform (FFT). 
+
+* **Physics Note (Ref: Appendix A.3 of Xuan et al. 2026)**: In the non-evolving limit ($\dot{f} \to 0$), the comb-like peak heights of the numerical spectrum ($h_{c, \mathrm{num}}$) coincide with the discrete harmonic representation ($h_{c, \mathrm{non-evolve}}$). Because the smoothed spectrum ($h_{c, \mathrm{env}}$) redistributes energy to preserve the integrated SNR, these numerical peaks will appear lower than the smoothed envelope by a factor of $\sqrt{f_{\mathrm{orb}}/f}$.
+
+* **Input**:
+    * **Observation & Signal**:
+        * `tobs_yr` (float): Observation duration in years.
+        * `polarization` (str, optional): The waveform polarization to analyze (`'hplus'` or `'hcross'`). Default is `'hplus'`.
+        * `theta`, `phi` (float, optional): Sky position angles [rad]. Default is $\pi/4$.
+        * `initial_orbital_phase` (float, optional): Initial mean anomaly/phase. Default is 0.
+    * **Sampling & Control**:
+        * `ts` (float, optional): Fixed sampling time step [s]. If `None` (default), the method uses adaptive sampling to generate the waveform and automatically extracts the equivalent sampling rate for the FFT.
+        * `points_per_peak` (int, optional): Resolution for adaptive sampling. Default is 50.
+        * `plot` (bool, optional): If `True`, plots the numerical characteristic strain against the LISA noise curve.
+        * `verbose` (bool, optional): Controls standard output printing.
+
+* **Output**:
+    * A `tuple` containing two NumPy arrays: `(freq_axis, hc_num)`.
+        * `[0] freq_axis`: Frequency axis [Hz] (positive half-space).
+        * `[1] hc_num`: The computed numerical characteristic strain spectrum ($h_{c, \mathrm{num}}$).
+    * **Note**: The results are also saved internally in the object's metadata dictionary as `self.extra['hc_num_f']` and `self.extra['hc_num_val']`.
+
+**Example:**
+```python
+# Extract the spectrum directly from a CompactBinary object
+f_axis, hc_num = my_binary.get_spectrum(
+    tobs_yr=1.0, 
+    ts=5.0,                 # 5-second sampling interval
+    polarization='hplus',   # Analyze the plus polarization
+    plot=True
+)
+
+print(f"   Output: Tuple of 2 Elements")
+print(f"      [0] Frequency Axis     (shape: {f_axis.shape})")
+print(f"      [1] Numerical Spectrum (shape: {hc_num.shape})")
+print(f"   Peak Numerical Strain: {np.max(hc_num):.4e}")
+```
+* **Output**:
+   ```
+      Output: Tuple of 2 Elements
+     [0] Frequency Axis     (shape: (1767549,))
+     [1] Numerical Spectrum (shape: (1767549,))
+   ```
+<p align="left">
+<img src="./images/characteristic_strain_num.png" width="500">
+</p>
+___
+
 
 #### `.compute_characteristic_strain()`
 
@@ -1144,7 +1194,50 @@ else:
 </p>
 
 
+___
 
+
+#### `leap.Waveform.compute_characteristic_strain_numerical()`
+
+Computes the **numerical spectrum representation** ($h_{c, \mathrm{num}}$) directly from a time-domain waveform array using Fast Fourier Transform (FFT). This method is universally valid for any arbitrary time-domain signal.
+
+* **Formula (Ref: Appendix A.3 of Xuan et al. 2026)**:
+  $$h_{c, \mathrm{num}}[k] = \sqrt{\frac{2 f_k}{T_{\mathrm{obs}}}} |\tilde{h}(f_k)|$$
+  
+  *Physics Note: In the non-evolving limit ($\dot{f} \to 0$), the comb-like peak heights of this numerical spectrum coincide with the discrete harmonic representation ($h_{c, \mathrm{non-evolve}}$). They will appear lower than the smoothed envelope ($h_{c, \mathrm{env}}$) by a factor of $\sqrt{f_{\mathrm{orb}}/f}$, as the smoothed envelope redistributes energy to preserve the integrated SNR.*
+
+* **Input**:
+    * `h_t` (NumPy Array or List): The time-domain waveform strain sequence (e.g., $h_+$ or detector response).
+    * `ts` (float): Sampling rate in Hz ($1/\Delta t$).
+    * `plot` (bool, optional): If `True`, plots the numerical characteristic strain spectrum against the LISA sensitivity curve.
+
+* **Output**:
+    * A `tuple` containing 2 NumPy arrays: `(xs, hc_num)`
+        * `[0] xs`: Frequency axis [Hz] (positive half-space).
+        * `[1] hc_num`: The computed numerical characteristic strain spectrum array ($h_{c, \mathrm{num}}$).
+
+**Example:**
+```python
+# Assuming 'h_plus' and 'dt_val_sec' are available from a previous waveform computation
+f_num, hc_num = leap.Waveform.compute_characteristic_strain_numerical(
+    h_t=h_plus, 
+    ts=1.0 / dt_val_sec, 
+    plot=True
+)
+
+print(f"   Output: Tuple of 2 Elements")
+print(f"      [0] Frequency Axis     (shape: {f_num.shape})")
+print(f"      [1] Numerical Spectrum (shape: {hc_num.shape})")
+```
+* **Output**:
+   ```
+      Output: Tuple of 2 Elements
+     [0] Frequency Axis     (shape: (1767549,))
+     [1] Numerical Spectrum (shape: (1767549,))
+   ```
+<p align="left">
+<img src="./images/characteristic_strain_num.png" width="500">
+</p>
 ___
 
 
