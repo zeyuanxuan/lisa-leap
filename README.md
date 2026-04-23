@@ -87,13 +87,18 @@ Once `lisa-leap` is installed, you can walk through the most common workflow bel
 import numpy as np
 import leap
 
+# Silence verbose per-iteration prints and RuntimeWarnings from the
+# internal numerical routines.  (You can toggle this back on any time with
+# leap.set_output_control(verbose=True, show_warnings=True).)
+leap.set_output_control(verbose=False, show_warnings=False)
+
 # -----------------------------------------------------------------
-# 1. Generate a Milky Way eccentric-GW source catalog
+# 1. Generate a Milky Way eccentric-GW source catalog (Running this step may take some time)
 # -----------------------------------------------------------------
 mw_catalog = leap.getMWcatalog(plot=True, tobs_yr=10.0)
 print(f"Catalog size: {len(mw_catalog)} systems")
 
-# Each entry is [label, m1, m2, a, e, Dl, snr, metadata_dict].
+# Each entry is [label, m1 (msun), m2 (msun), a (au), e, Dl (kpc), snr, metadata_dict].
 # Pick the highest-SNR source for a detailed look:
 best = max(mw_catalog, key=lambda row: row[6])
 label, m1, m2, a, e, Dl, snr, meta = best
