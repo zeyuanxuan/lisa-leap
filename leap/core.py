@@ -1926,7 +1926,7 @@ def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_y
     # --- 0. Print the configuration upfront ---------------------------------
     _print_catalog_config(tobs_yr, include_field_bkg, bkg_pct)
     if strict_snr:
-        print(f"  [!] STRICT SNR MODE ENABLED: Will recompute full harmonic SNR for all sources.")
+        print(f"  [!] STRICT SNR MODE ENABLED: Will use smart two-step recomputation (Quick -> Full).")
         print("-" * 64)
 
     all_binaries = []
@@ -2034,6 +2034,7 @@ def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_y
 
     # 统计对比数据
     diff_stats = []
+    full_recompute_count = 0
 
     process_msg = f"Computing strict SNR for {total} systems" if strict_snr else f"Scaling SNR for {total} systems (tobs = {tobs_yr} yr)"
     with _Spinner(process_msg) as sp:
@@ -2048,8 +2049,16 @@ def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_y
                 snr_final = snr_fast
 
                 if strict_snr:
-                    # 严格重算全谐波积分 SNR
-                    snr_strict = b.compute_snr_analytical(tobs_yr=tobs_yr, quick_analytical=False, verbose=False)
+                    # 步骤 1：先用 quick_analytical 试探
+                    snr_quick = b.compute_snr_analytical(tobs_yr=tobs_yr, quick_analytical=True, verbose=False)
+
+                    # 步骤 2：如果大概率有信号 ( > 0.1 )，才进入耗时的全谐波积分
+                    if snr_quick > 0.1:
+                        snr_strict = b.compute_snr_analytical(tobs_yr=tobs_yr, quick_analytical=False, verbose=False)
+                        full_recompute_count += 1
+                    else:
+                        snr_strict = snr_quick
+
                     snr_final = snr_strict
 
                     # 记录误差 (剔除原本就是极小噪声的干扰)
@@ -2084,12 +2093,14 @@ def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_y
         large_errors = sum(1 for x in diff_stats if x['diff'] > 1.0)
 
         print("\n" + "-" * 64)
-        print(f"📊 SNR COMPUTATION REPORT (Strict vs Fast-Scale)")
+        print(f"📊 SNR COMPUTATION REPORT (Strict Two-Step vs Fast-Scale)")
         print("-" * 64)
-        print(f"  • Mean absolute error : {mean_err:.4f}")
-        print(f"  • Systems w/ error > 1: {large_errors} / {len(diff_stats)}")
         print(
-            f"  • Max error observed  : {max_err_item['diff']:.2f} (Strict: {max_err_item['strict']:.2f}, Fast: {max_err_item['fast']:.2f}) [Source: {max_err_item['label']}]")
+            f"  • Full Harmonic Integrations Run : {full_recompute_count} / {total} (saved {total - full_recompute_count} calls)")
+        print(f"  • Mean absolute error vs Scaled  : {mean_err:.4f}")
+        print(f"  • Systems w/ error > 1           : {large_errors} / {len(diff_stats)}")
+        print(
+            f"  • Max error observed             : {max_err_item['diff']:.2f} (Strict: {max_err_item['strict']:.2f}, Scaled: {max_err_item['fast']:.2f}) [Source: {max_err_item['label']}]")
         print("-" * 64)
 
     # --- 5. Evaporated population (optional) --------------------------------
@@ -2111,7 +2122,6 @@ def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_y
         _plot_mw_catalog(formatted_catalog)
 
     return formatted_catalog
-
 
 # Re-attach after redefinition
 LISAeccentric.getMWcatalog = getMWcatalog
