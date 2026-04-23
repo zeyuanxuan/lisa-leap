@@ -36,7 +36,7 @@ You can install `lisa-leap` directly from GitHub. Please choose the method that 
 
 > **Note on naming:** The distribution package name (used by `pip`) is `lisa-leap`, while the import name (used inside Python code) is `leap`.
 
-#### Method 1: Jupyter Notebook / Google Colab (Recommended)
+#### Method 1: Jupyter Notebook / Google Colab 
 If you are working in a notebook (Jupyter, Colab, Kaggle), run the following command in a code cell.
 ```
 !pip install https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip
@@ -78,6 +78,11 @@ export LISA_LEGACY=1
 pip install --user https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip
 ```
 
+#### Updating to the Latest Version
+If you have previously installed `lisa-leap` and want to pull the latest updates from the `main` branch. To force a clean reinstallation, add the `--upgrade`, `--no-cache-dir`, and `--force-reinstall` flags:
+
+```bash
+pip install --upgrade --no-cache-dir --force-reinstall [https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip](https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip)
 ---
 ## ⚡ Quickstart
 
