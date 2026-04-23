@@ -359,19 +359,19 @@ Computes the characteristic strain spectrum ($h_c$) for the binary system. This 
         * `[0] freq`: Frequency list [Hz].
 
         * `[1] hc_spectrum`: Smoothed spectrum representation ($h_{c,\mathrm{env}}(f)$).  
-          Formula: $h_{c,\mathrm{env}} = \sqrt{2}\, h_n \sqrt{f\, T_{\mathrm{obs}}} \sqrt{f / f_{\mathrm{orb}}}$.  
+          Formula: $h_{c,\mathrm{env}} = \sqrt{2} h_n \sqrt{f T_{\mathrm{obs}}} \sqrt{f / f_{\mathrm{orb}}}$.  
           This continuous envelope redistributes the power of discrete harmonics over frequency space so that the area between it and the noise curve in a log-log plot directly reflects the integrated SNR.
 
         * `[2] hc_harmonics`: Individual harmonic representation ($h_{c,\mathrm{insp}}$).  
-          Formula: $h_{c,\mathrm{insp}} = \sqrt{2}\, h_n \sqrt{f^2 / \dot{f}}$.  
+          Formula: $h_{c,\mathrm{insp}} = \sqrt{2} h_n \sqrt{f^2 / \dot{f}}$.  
           This represents the pre-integration (evolving) characteristic strain amplitude of individual harmonics.
 
         * `[3] hc_non_evolve`: Non-evolving / discrete harmonic representation ($h_{c,\mathrm{non-evolve}}$).  
-          Formula: $h_{c,\mathrm{non-evolve}} = \sqrt{2}\, h_n \sqrt{f\, T_{\mathrm{obs}}}$.  
+          Formula: $h_{c,\mathrm{non-evolve}} = \sqrt{2} h_n \sqrt{f T_{\mathrm{obs}}}$.  
           This represents the post-integration peak height of each discrete harmonic assuming $\dot{f} \to 0$.
 
           In practice, they are combined as:  
-          $h_c = \sqrt{2}\, h_n \sqrt{ \min\{ f^2 / \dot{f},\; f\, T_{\mathrm{obs}} \} }$.
+          $h_c = \sqrt{2}\, h_n \sqrt{ \min( f^2 / \dot{f}; f T_{\mathrm{obs}} ) }$.
 
         * `[4] snr_contrib`: Contribution to the noise power spectral density $S_n(f)$ at harmonic frequencies.
   
@@ -1074,20 +1074,41 @@ ___
 
 
 #### `leap.Waveform.compute_characteristic_strain_single()`
-Computes the characteristic strain $h_c(f)$ of a single eccentric binary system. This function decomposes the signal into orbital harmonics, representing the signal strength relative to the LISA sensitivity curve in the frequency domain.
+
+Computes the characteristic strain spectrum ($h_c$) for a single eccentric binary system. This method provides different physically equivalent representations of the characteristic strain; see Appendix A.2 and A.3 of Xuan et al. (2026) for details.
+
+* **Note:** This fast calculation method assumes the binary's evolution is negligible during the observation.
+
 * **Input**:
     * `m1_msun`, `m2_msun` (float): Component masses [$M_\odot$].
     * `a_au` (float): Semi-major axis [AU].
     * `e` (float): Eccentricity.
     * `Dl_kpc` (float): Luminosity distance [kpc].
     * `tobs_yr` (float): Integration time [years].
-    * `plot` (bool, optional): If `True`, plots the characteristic strain spectrum against the LISA sensitivity curve.
+    * `plot` (bool, optional): If `True`, generates a spectrum plot against the LISA sensitivity curve.
+
 * **Output**:
-    * A `list` containing 4 NumPy arrays:
-        1.  `f_list`: Frequency bins [Hz] corresponding to the harmonics.
-        2.  `hc_integrated`: Time-integrated characteristic strain spectrum (amplitude).
-        3.  `hc_instant`: Instantaneous $h_c$ value for each harmonic peak.
-        4.  `sn_contribution`: The signal's contribution to the Noise Power Spectral Density ($S_n(f)$).
+    * A list of 5 NumPy arrays:  
+      `[freq, hc_spectrum, hc_harmonics, hc_non_evolve, snr_contrib]`
+
+        * `[0] freq`: Frequency list [Hz].
+
+        * `[1] hc_spectrum`: Smoothed spectrum representation ($h_{c,\mathrm{env}}(f)$).  
+          Formula: $h_{c,\mathrm{env}} = \sqrt{2} h_n \sqrt{f T_{\mathrm{obs}}} \sqrt{f / f_{\mathrm{orb}}}$.  
+          This continuous envelope redistributes the power of discrete harmonics over frequency space so that the area between it and the noise curve in a log-log plot directly reflects the integrated SNR.
+
+        * `[2] hc_harmonics`: Individual harmonic representation ($h_{c,\mathrm{insp}}$).  
+          Formula: $h_{c,\mathrm{insp}} = \sqrt{2} h_n \sqrt{f^2 / \dot{f}}$.  
+          This represents the pre-integration (evolving) characteristic strain amplitude of individual harmonics.
+
+        * `[3] hc_non_evolve`: Non-evolving / discrete harmonic representation ($h_{c,\mathrm{non-evolve}}$).  
+          Formula: $h_{c,\mathrm{non-evolve}} = \sqrt{2} h_n \sqrt{f T_{\mathrm{obs}}}$.  
+          This represents the post-integration peak height of each discrete harmonic assuming $\dot{f} \to 0$.
+
+          In practice, they are combined as:  
+          $h_c = \sqrt{2}\, h_n \sqrt{ \min( f^2 / \dot{f}; f T_{\mathrm{obs}} ) }$.
+
+        * `[4] snr_contrib`: Contribution to the noise power spectral density $S_n(f)$ at harmonic frequencies.
 
 **Example:**
 ```python
@@ -1099,22 +1120,24 @@ hc_res = leap.Waveform.compute_characteristic_strain_single(
 )
 
 strain_res_list = hc_res
-if isinstance(strain_res_list, list) and len(strain_res_list) == 4:
-    print(f"   Output: List of 4 Elements")
-    print(f"      [0] Frequency List       (shape: {strain_res_list[0].shape})")
-    print(f"      [1] Time-integrated Spectrum Amplitude (h_c) (shape: {strain_res_list[1].shape})")
-    print(f"      [2] Instantaneous hc value for each harmonics (shape: {strain_res_list[2].shape})")
-    print(f"      [3] Contribution to Snf  (shape: {strain_res_list[3].shape})")
+if isinstance(strain_res_list, list) and len(strain_res_list) == 5:
+    print(f"   Output: List of 5 Elements")
+    print(f"      [0] Frequency List                           (shape: {strain_res_list[0].shape})")
+    print(f"      [1] Smoothed Spectrum (hc_env)               (shape: {strain_res_list[1].shape})")
+    print(f"      [2] Individual Harmonics (hc_insp)           (shape: {strain_res_list[2].shape})")
+    print(f"      [3] Non-evolving Harmonics (hc_nonevolve)    (shape: {strain_res_list[3].shape})")
+    print(f"      [4] Contribution to Snf                      (shape: {strain_res_list[4].shape})")
 else:
     print(f"   Output: {type(strain_res_list)}")
 ```
 * **Output**:
     ```
-   Output: List of 4 Elements
-      [0] Frequency List       (shape: (14093,))
-      [1] Time-integrated Spectrum Amplitude (h_c) (shape: (14093,))
-      [2] Instantaneous hc value for each harmonics (shape: (14093,))
-      [3] Contribution to Snf  (shape: (14093,))
+   Output: List of 5 Elements
+[0] Frequency List                           (shape: (14093,))
+  [1] Smoothed Spectrum (hc_env)               (shape: (14093,))
+  [2] Individual Harmonics (hc_insp)           (shape: (14093,))
+  [3] Non-evolving Harmonics (hc_nonevolve)    (shape: (14093,))
+  [4] Contribution to Snf                      (shape: (14093,))
     ```
 <p align="left">
 <img src="./images/characteristic_strain.png" width="500">
