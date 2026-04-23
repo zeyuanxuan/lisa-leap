@@ -1791,8 +1791,6 @@ def _plot_mw_catalog(catalog):
     plt.show()
 
 
-
-
 # ==============================================================================
 # Spinner: a lightweight background-thread status indicator for long-running ops
 # ==============================================================================
@@ -1861,10 +1859,26 @@ class _Spinner:
 
 @contextlib.contextmanager
 def _silence_stdout():
-    """Temporarily redirect stdout to /dev/null for sub-function calls."""
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        yield
+    """
+    Temporarily suppress noise from sub-function calls:
+      - stdout prints (via redirect_stdout)
+      - stderr writes (e.g. warnings module default stream)
+      - RuntimeWarning / numpy FloatingPointError-style warnings
+    We leave exceptions alone — errors still propagate normally.
+    """
+    buf_out = io.StringIO()
+    buf_err = io.StringIO()
+    with contextlib.redirect_stdout(buf_out), \
+            contextlib.redirect_stderr(buf_err), \
+            warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        # numpy's internal divide-by-zero / invalid-value warnings go through
+        # np.seterr, not the warnings module, so silence those too.
+        old_np_err = np.seterr(divide='ignore', invalid='ignore', over='ignore')
+        try:
+            yield
+        finally:
+            np.seterr(**old_np_err)
 
 
 def _print_catalog_config(tobs_yr, include_field_bkg, bkg_pct):
@@ -2010,7 +2024,7 @@ def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.01, tobs_yr
 
     # --- 5. Evaporated population (optional) --------------------------------
     if include_evaporated:
-        with _Spinner(f"Simulating evaporated wide-field binaries ({evap_pct*100:.1f}%)") as sp:
+        with _Spinner(f"Simulating evaporated wide-field binaries ({evap_pct * 100:.1f}%)") as sp:
             with _silence_stdout():
                 evap_systems = _run_evaporation_simulation(pct=evap_pct)
             for es in evap_systems:
