@@ -2320,6 +2320,7 @@ def compute_characteristic_strain_numerical(h_t, ts, plot=False):
     """
     import scipy.fftpack
     import matplotlib.pyplot as plt
+    import numpy as np
 
     h_t = np.asarray(h_t)
     num1 = len(h_t)
@@ -2346,9 +2347,8 @@ def compute_characteristic_strain_numerical(h_t, ts, plot=False):
     if plot:
         fig, ax = plt.subplots(1, 1, figsize=(8, 6), dpi=100)
 
-        f_min_plot = max(1e-6, xs[1]) if len(xs) > 1 else 1e-6
-        f_max_plot = xs[-1] if len(xs) > 1 else 0.1
-        f_noise = np.logspace(np.log10(f_min_plot), np.log10(f_max_plot), 1000)
+        # 修改点：强制 LISA Noise 曲线在 [1e-7, 0.1] Hz 范围内独立采样
+        f_noise = np.logspace(-7, -1, 1000)
 
         # 调用当前文件内的 S_n_lisa
         try:
@@ -2358,8 +2358,10 @@ def compute_characteristic_strain_numerical(h_t, ts, plot=False):
 
         hc_noise = np.sqrt(f_noise * Snf_vals)
 
+        # 绘制背景噪声曲线 (固定频率轴 f_noise)
         ax.loglog(f_noise, hc_noise, color='black', label='LISA Noise', zorder=1)
-        # 跳过 f=0 的直流分量
+
+        # 绘制信号数值特征应变 (使用信号自带的频率轴 xs，并跳过 f=0 的直流分量)
         ax.loglog(xs[1:], hc_num[1:], color='blue', label=r'Numerical $h_{c, \rm num}$', zorder=2)
 
         ax.set_xlim(1e-7, 0.1)
