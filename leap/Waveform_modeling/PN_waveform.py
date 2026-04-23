@@ -2362,7 +2362,7 @@ def compute_characteristic_strain_numerical(h_t, ts, plot=False):
         # 跳过 f=0 的直流分量
         ax.loglog(xs[1:], hc_num[1:], color='blue', label=r'Numerical $h_{c, \rm num}$', zorder=2)
 
-        ax.set_xlim(f_min_plot, f_max_plot)
+        ax.set_xlim(1e-7, 0.1)
         ax.set_ylim(1e-24, 5e-18)
 
         ax.set_xlabel(r'$f$ [Hz]', fontsize=18)
