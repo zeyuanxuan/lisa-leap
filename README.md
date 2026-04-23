@@ -343,18 +343,48 @@ ___
 
 
 #### `.compute_characteristic_strain()`
-Computes the characteristic strain spectrum ($h_c$) for the binary system. This method provides different physically equivalent representations of the characteristic strain, see Appendix A.2 and A.3 of Xuan et al. 2026 for details.
-* **Note:** This fast calculation method assumes the binary's evolution is negilible during the observation.
+
+Computes the characteristic strain spectrum ($h_c$) for the binary system. This method provides different physically equivalent representations of the characteristic strain; see Appendix A.2 and A.3 of Xuan et al. (2026) for details.
+
+* **Note:** This fast calculation method assumes the binary's evolution is negligible during the observation.
+
 * **Input**:
     * `tobs_yr` (float): Integration time in years.
     * `plot` (bool, optional): If `True`, generates a spectrum plot.
+
 * **Output**:
-    * A list of 5 NumPy arrays: [freq, hc_spectrum, hc_harmonics, hc_non_evolve, snr_contrib].
-        * `[0] freq`: Frequency List [Hz].
-        * `[1] hc_spectrum`: [1] hc_spectrum: Smoothed Spectrum Representation ($h_{c, \rm env}(f)$). Formula: $h_{c, \rm env} = \sqrt{2} h_n \sqrt{f T_{\rm obs}} \sqrt{f/f_{\rm orb}}$. This continuous envelope redistributes the power of discrete harmonics over frequency space so that the area between it and the noise curve in a log-log plot directly reflects the integrated SNR.
-        * `[2] hc_harmonics`: Individual Harmonic Representation ($h_c, insp$). Formula: $\sqrt{2} h_n \sqrt{  f^2/\dot{f}}$. It stands for the pre-integral (evolving) hc amplitude of individual harmonics.
-        * `[3] hc_non_evolve`: Non-evolving / Discrete Harmonic Representation ($h_{c, non-evolve}$). Formula: $\sqrt{2} h_n \sqrt{f T_{\rm obs}}$. Represents the post-integration peak height of each discrete harmonic assuming $\dot{f} \to 0$. Note that $h_c, insp$ and $h_{c, non-evolve}$ are usually combined as $h_{c}=\sqrt{2} h_n \sqrt{ \min \{ f^2/\dot{f}, f T_{\rm obs} \} }$. 
-        * `[4] snr_contrib`: Contribution to noise power spectral density ($S_n(f)$) at harmonic frequencies.
+    * A list of 5 NumPy arrays:  
+      `[freq, hc_spectrum, hc_harmonics, hc_non_evolve, snr_contrib]`
+
+        * `[0] freq`: Frequency list [Hz].
+
+        * `[1] hc_spectrum`: Smoothed spectrum representation ($h_{c,\mathrm{env}}(f)$).  
+          Formula:  
+          $$
+          h_{c,\mathrm{env}} = \sqrt{2}\, h_n \sqrt{f\, T_{\mathrm{obs}}} \sqrt{\frac{f}{f_{\mathrm{orb}}}}
+          $$
+          This continuous envelope redistributes the power of discrete harmonics over frequency space so that the area between it and the noise curve in a log-log plot directly reflects the integrated SNR.
+
+        * `[2] hc_harmonics`: Individual harmonic representation ($h_{c,\mathrm{insp}}$).  
+          Formula:  
+          $$
+          h_{c,\mathrm{insp}} = \sqrt{2}\, h_n \sqrt{\frac{f^2}{\dot{f}}}
+          $$
+          This represents the pre-integration (evolving) characteristic strain amplitude of individual harmonics.
+
+        * `[3] hc_non_evolve`: Non-evolving / discrete harmonic representation ($h_{c,\mathrm{non\mbox{-}evolve}}$).  
+          Formula:  
+          $$
+          h_{c,\mathrm{non\mbox{-}evolve}} = \sqrt{2}\, h_n \sqrt{f\, T_{\mathrm{obs}}}
+          $$
+          This represents the post-integration peak height of each discrete harmonic assuming $\dot{f} \to 0$.
+
+          In practice, $h_{c,\mathrm{insp}}$ and $h_{c,\mathrm{non\mbox{-}evolve}}$ are combined as:
+          $$
+          h_c = \sqrt{2}\, h_n \sqrt{ \min \left\{ \frac{f^2}{\dot{f}},\; f\, T_{\mathrm{obs}} \right\} }
+          $$
+
+        * `[4] snr_contrib`: Contribution to the noise power spectral density $S_n(f)$ at harmonic frequencies.
   
 **Example:**
 ```python
