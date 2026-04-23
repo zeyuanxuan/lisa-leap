@@ -82,7 +82,7 @@ pip install --user https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/ma
 If you have previously installed `lisa-leap` and want to pull the latest updates from the `main` branch. To force a clean reinstallation, add the `--upgrade`, `--no-cache-dir`, and `--force-reinstall` flags:
 
 ```bash
-pip install --upgrade --no-cache-dir --force-reinstall [https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip](https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip)
+pip install --upgrade --no-cache-dir --force-reinstall "https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip"
 ```
 
 ---
