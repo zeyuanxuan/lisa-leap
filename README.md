@@ -103,7 +103,7 @@ print(f"Catalog size: {len(mw_catalog)} systems")
 best = max(mw_catalog, key=lambda row: row[6])
 label, m1, m2, a, e, Dl, snr, meta = best
 print(f"Brightest source: {label} | M={m1:.1f}+{m2:.1f} Msun, "
-      f"a={a:.3e} AU, e={e:.4f}, SNR={snr:.2f}")
+      f"a={a:.3e} AU, e={e:.4f}, SNR={snr:.2f} for 10yr observation")
 
 # -----------------------------------------------------------------
 # 2. Wrap it as a CompactBinary object for analysis
@@ -117,14 +117,14 @@ binary = leap.CompactBinary(
 # 3. Time-domain waveform  (h_+, h_x)
 # -----------------------------------------------------------------
 t_vec, h_plus, h_cross = binary.compute_waveform(
-    tobs_yr=1.0, points_per_peak=50, plot=True
+    tobs_yr=0.5, points_per_peak=50, plot=True
 )
 
 # -----------------------------------------------------------------
 # 4. Numerical spectrum  (hc_num via FFT of the waveform above)
 # -----------------------------------------------------------------
 f_axis, hc_num = binary.get_spectrum(
-    tobs_yr=1.0, polarization='hplus', plot=True
+    tobs_yr=0.5, polarization='hplus', plot=True
 )
 
 # -----------------------------------------------------------------
@@ -140,7 +140,7 @@ snr_val = binary.compute_snr_analytical(tobs_yr=4.0)
 print(f"4-year sky-averaged SNR = {snr_val:.2f}")
 ```
 
-For deeper control — custom populations, elliptical-galaxy fields, LISA-response projection, noise-curve swaps, batch population strain, etc. — see the corresponding sections in §3–§5 below.
+For deeper control — custom populations, LISA-response projection, noise-curve swaps, batch population strain, numerical inner product, etc. — see the corresponding sections in §3–§5 below.
 
 ---
 ## 🚀 If you simply want to get a catalog...
