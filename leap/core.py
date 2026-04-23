@@ -1906,15 +1906,15 @@ def _print_catalog_config(tobs_yr, include_field_bkg, bkg_pct):
 
 
 # ==============================================================================
-# getMWcatalog (refactored: Pre-loaded GN/Field, Fast SNR Scaling + Strict Mode)
+# getMWcatalog (refactored: Pre-loaded GN/Field, Smart Two-Step SNR)
 # ==============================================================================
 @mute_if_global_verbose_false
-def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_yr=10.0, strict_snr=False):
+def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_yr=10.0):
     """
     Generate and optionally plot a full Milky Way GW Population Catalog.
     Combines populations from Galactic Nucleus (GN), Globular Clusters (GC), and Field.
-    SNR is fast-scaled based on pre-computed 10-year baseline data by default.
-    If strict_snr=True, computes the full harmonic integration SNR from scratch and compares it.
+    SNR is computed using a smart two-step method: quick geometric approximation first,
+    followed by full harmonic integration ONLY for sources with SNR > 0.1.
     """
     import os
     import random
@@ -1925,9 +1925,6 @@ def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_y
 
     # --- 0. Print the configuration upfront ---------------------------------
     _print_catalog_config(tobs_yr, include_field_bkg, bkg_pct)
-    if strict_snr:
-        print(f"  [!] STRICT SNR MODE ENABLED: Will use smart two-step recomputation (Quick -> Full).")
-        print("-" * 64)
 
     all_binaries = []
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -2027,52 +2024,31 @@ def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_y
     else:
         print(f"[Catalog] ⚠️  Warning: Field file not found at {target_file_field}. Skipping.")
 
-    # --- 4. SNR Scaling / Strict Recomputation -------------------------------
+    # --- 4. Smart Two-Step SNR Computation -----------------------------------
     formatted_catalog = []
     seen_gc_ae = set()
     total = len(all_binaries)
 
-    # 统计对比数据
-    diff_stats = []
     full_recompute_count = 0
 
-    process_msg = f"Computing strict SNR for {total} systems" if strict_snr else f"Scaling SNR for {total} systems (tobs = {tobs_yr} yr)"
-    with _Spinner(process_msg) as sp:
+    with _Spinner(f"Computing SNR (Smart Two-Step) for {total} systems (tobs = {tobs_yr} yr)") as sp:
         with _silence_stdout():
-            snr_scale_factor = np.sqrt(tobs_yr / 10.0)
-
             for idx, b in enumerate(all_binaries, start=1):
-                base_snr = b.extra.get('snr', 0.0)
-                snr_fast = base_snr * snr_scale_factor
 
-                # 默认使用快速缩放的值
-                snr_final = snr_fast
+                # 步骤 1：先用 quick_analytical 试探
+                snr_quick = b.compute_snr_analytical(tobs_yr=tobs_yr, quick_analytical=True, verbose=False)
 
-                if strict_snr:
-                    # 步骤 1：先用 quick_analytical 试探
-                    snr_quick = b.compute_snr_analytical(tobs_yr=tobs_yr, quick_analytical=True, verbose=False)
+                # 步骤 2：如果大概率有信号 ( > 0.1 )，才进入耗时的全谐波积分
+                if snr_quick > 0.1:
+                    snr_final = b.compute_snr_analytical(tobs_yr=tobs_yr, quick_analytical=False, verbose=False)
+                    full_recompute_count += 1
+                else:
+                    snr_final = snr_quick
 
-                    # 步骤 2：如果大概率有信号 ( > 0.1 )，才进入耗时的全谐波积分
-                    if snr_quick > 0.1:
-                        snr_strict = b.compute_snr_analytical(tobs_yr=tobs_yr, quick_analytical=False, verbose=False)
-                        full_recompute_count += 1
-                    else:
-                        snr_strict = snr_quick
-
-                    snr_final = snr_strict
-
-                    # 记录误差 (剔除原本就是极小噪声的干扰)
-                    if snr_strict > 1e-3 or snr_fast > 1e-3:
-                        diff = abs(snr_strict - snr_fast)
-                        diff_stats.append({
-                            'diff': diff,
-                            'label': b.label,
-                            'strict': snr_strict,
-                            'fast': snr_fast
-                        })
-
+                # 覆盖写入系统属性
                 b.extra['snr'] = snr_final
 
+                # GC 低信噪比去重逻辑
                 if b.label == "GC" and snr_final < 0.1:
                     ae_tuple = (b.a, b.e)
                     if ae_tuple in seen_gc_ae:
@@ -2086,22 +2062,14 @@ def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_y
                 if idx % 50 == 0 or idx == total:
                     sp.update(f"({idx}/{total})")
 
-    # --- 4.5 Print Strict SNR Report ---
-    if strict_snr and diff_stats:
-        max_err_item = max(diff_stats, key=lambda x: x['diff'])
-        mean_err = np.mean([x['diff'] for x in diff_stats])
-        large_errors = sum(1 for x in diff_stats if x['diff'] > 1.0)
-
-        print("\n" + "-" * 64)
-        print(f"📊 SNR COMPUTATION REPORT (Strict Two-Step vs Fast-Scale)")
-        print("-" * 64)
-        print(
-            f"  • Full Harmonic Integrations Run : {full_recompute_count} / {total} (saved {total - full_recompute_count} calls)")
-        print(f"  • Mean absolute error vs Scaled  : {mean_err:.4f}")
-        print(f"  • Systems w/ error > 1           : {large_errors} / {len(diff_stats)}")
-        print(
-            f"  • Max error observed             : {max_err_item['diff']:.2f} (Strict: {max_err_item['strict']:.2f}, Scaled: {max_err_item['fast']:.2f}) [Source: {max_err_item['label']}]")
-        print("-" * 64)
+    # --- 4.5 Print SNR Performance Report ---
+    print("\n" + "-" * 64)
+    print(f"📊 SNR COMPUTATION REPORT (Smart Two-Step Method)")
+    print("-" * 64)
+    print(f"  • Total systems evaluated      : {total}")
+    print(f"  • Full Harmonic Integrations   : {full_recompute_count}")
+    print(f"  • Expensive calls saved        : {total - full_recompute_count}")
+    print("-" * 64)
 
     # --- 5. Evaporated population (optional) --------------------------------
     if include_evaporated:
