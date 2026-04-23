@@ -4,13 +4,16 @@ import matplotlib.pyplot as plt
 from dataclasses import dataclass, field
 from typing import List, Optional, Any, Dict, Union
 import shutil  # Added for file operations
-import os
 import importlib
 import builtins     # For print overriding
-import sys          # For stdout control
-import contextlib   # For redirecting stdout
 import warnings     # For warning control
 from scipy.optimize import newton
+import contextlib
+import io
+import os
+import sys
+import threading
+import time
 
 #transform to G=c=1 unit
 m_sun = 1.98840987e30 * sciconsts.G / np.power(sciconsts.c, 3.0)
@@ -1788,103 +1791,243 @@ def _plot_mw_catalog(catalog):
     plt.show()
 
 
+
+
+# ==============================================================================
+# Spinner: a lightweight background-thread status indicator for long-running ops
+# ==============================================================================
+class _Spinner:
+    """
+    Minimal thread-backed spinner. Writes to real stdout (`sys.__stdout__`) so
+    it still shows up even when the caller has redirected stdout elsewhere.
+
+    Usage:
+        with _Spinner("Doing thing") as sp:
+            for i, item in enumerate(items):
+                do_work(item)
+                sp.update(f"({i+1}/{len(items)})")
+    """
+    _FRAMES = ['|', '/', '-', '\\']
+
+    def __init__(self, message=""):
+        self._base_msg = message
+        self._suffix = ""
+        self._stop_evt = threading.Event()
+        self._thread = None
+        # Only animate when we're actually writing to a TTY-like stream.
+        # In non-TTY (piped, some CI logs, stale notebook kernels) we still
+        # print a single start/end line so the user sees progress.
+        self._stream = sys.__stdout__
+        self._interactive = hasattr(self._stream, 'isatty') and self._stream.isatty()
+
+    def __enter__(self):
+        self._stop_evt.clear()
+        if self._interactive:
+            self._thread = threading.Thread(target=self._spin, daemon=True)
+            self._thread.start()
+        else:
+            # Non-interactive: just announce the stage start once.
+            self._stream.write(f"  {self._base_msg} ...\n")
+            self._stream.flush()
+        return self
+
+    def update(self, suffix):
+        """Update the trailing text shown next to the spinner frame."""
+        self._suffix = suffix
+
+    def _spin(self):
+        i = 0
+        while not self._stop_evt.is_set():
+            frame = self._FRAMES[i % len(self._FRAMES)]
+            line = f"\r  {frame} {self._base_msg} {self._suffix}"
+            # Pad to clear any leftover characters from a previous, longer line.
+            self._stream.write(line.ljust(80))
+            self._stream.flush()
+            i += 1
+            time.sleep(0.1)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._stop_evt.set()
+        if self._thread is not None:
+            self._thread.join(timeout=0.5)
+        if self._interactive:
+            # Overwrite the spinner line with a final done/failed marker.
+            mark = "✗" if exc_type is not None else "✓"
+            final = f"\r  {mark} {self._base_msg} {self._suffix}"
+            self._stream.write(final.ljust(80) + "\n")
+            self._stream.flush()
+        return False  # never swallow exceptions
+
+
+@contextlib.contextmanager
+def _silence_stdout():
+    """Temporarily redirect stdout to /dev/null for sub-function calls."""
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        yield
+
+
+def _print_catalog_config(tobs_yr, include_field_bkg, bkg_pct):
+    """
+    Print the list of populations that will be included in the catalog, along
+    with the internal defaults used by getMWcatalog. Makes the 'what am I
+    actually getting?' question answerable without reading the source.
+    """
+    print("=" * 64)
+    print(f"[Catalog] Milky Way GW Source Catalog Generator")
+    print("=" * 64)
+    print(f"  Observation time (Tobs) : {tobs_yr} yr")
+    print(f"  Included populations:")
+    print(f"    • GN  (Galactic Nucleus)   "
+          f"  rate_gn=3.0/Myr, age_ync=3.0e6 yr, n_ync_sys=100, max_bh_mass=100 Msun")
+    print(f"    • GC  (Globular Clusters)  "
+          f"  mode='single', channel='all'  (~1/10 of the CMC MW GC catalog)")
+    print(f"    • Field (Fly-by induced)   "
+          f"  loaded from field_snapshots_aggregated.npy, sampled 1:1000; LIGO mass distribution")
+    if include_field_bkg:
+        print(f"    • Wide-field background    "
+              f"  evaporation model, sampled at {bkg_pct*100:.1f}%")
+    else:
+        print(f"    • Wide-field background    DISABLED (set include_field_bkg=True to enable)")
+    print("-" * 64)
+
+
+# ==============================================================================
+# getMWcatalog (refactored: silenced sub-prints, spinner, config preamble)
+# ==============================================================================
 @mute_if_global_verbose_false
 def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.01, tobs_yr=10.0):
     """
     Generate and optionally plot a full Milky Way GW Population Catalog.
     Combines populations from Galactic Nucleus (GN), Globular Clusters (GC), and Field.
     """
-    include_evaporated=include_field_bkg
-    evap_pct=bkg_pct
-    print(f"\n[Catalog] Generating Milky Way GW Catalog (Tobs={tobs_yr} yr)...")
+    include_evaporated = include_field_bkg
+    evap_pct = bkg_pct
+
+    # --- 0. Print the configuration upfront ---------------------------------
+    _print_catalog_config(tobs_yr, include_field_bkg, bkg_pct)
+
     all_binaries = []
     field_npy_name = 'field_snapshots_aggregated.npy'
     field_sample_divisor = 1000
-    # 1. 抓取 GN (Galactic Nucleus) 样本
+
+    # --- 1. GN (Galactic Nucleus) -------------------------------------------
     if hasattr(self, 'GN'):
-        gn_pops = self.GN.get_snapshot(rate_gn=3.0, age_ync=3.0e6, n_ync_sys=100, max_bh_mass=100.0, plot=False)
-        for b in gn_pops:
-            # 【修复】: 保存底层传上来的真实名称 (如 GN_steadystate) 到 metadata
-            b.extra['source_label'] = b.label
-            b.label = "GN"  # 统一修改大类名以适配画图
-        all_binaries.extend(gn_pops)
+        with _Spinner("Sampling GN population") as sp:
+            with _silence_stdout():
+                gn_pops = self.GN.get_snapshot(
+                    rate_gn=3.0, age_ync=3.0e6, n_ync_sys=100,
+                    max_bh_mass=100.0, plot=False
+                )
+            for b in gn_pops:
+                b.extra['source_label'] = b.label
+                b.label = "GN"
+            all_binaries.extend(gn_pops)
+            sp.update(f"({len(gn_pops)} systems)")
 
-    # 2. 抓取 GC (Globular Clusters) 样本
+    # --- 2. GC (Globular Clusters) ------------------------------------------
     if hasattr(self, 'GC'):
-        gc_pops = self.GC.get_snapshot(mode='single', channel='all', plot=False)
-        for b in gc_pops:
-            # 【修复】: 保存底层传上来的真实星团名称 (如 NGC_6121_Incluster)
-            b.extra['source_label'] = b.label
-            b.label = "GC"
-        all_binaries.extend(gc_pops)
+        with _Spinner("Sampling GC population") as sp:
+            with _silence_stdout():
+                gc_pops = self.GC.get_snapshot(
+                    mode='single', channel='all', plot=False
+                )
+            for b in gc_pops:
+                b.extra['source_label'] = b.label
+                b.label = "GC"
+            all_binaries.extend(gc_pops)
+            sp.update(f"({len(gc_pops)} systems)")
 
-    # 3. 抓取 Field (孤立/飞掠场) 样本
+    # --- 3. Field (fly-by / isolated) ---------------------------------------
     current_dir = os.path.dirname(os.path.abspath(__file__))
     target_file = os.path.join(current_dir, field_npy_name)
 
     if os.path.exists(target_file):
-        try:
-            print(f"[Catalog] Loading Field data from {field_npy_name}...")
-            raw = np.load(target_file, allow_pickle=True)
-            data_block = raw.item().get('data', []) if (hasattr(raw, 'item') and isinstance(raw.item(), dict)) else raw
-            all_field_rows = data_block.tolist() if isinstance(data_block, np.ndarray) else list(data_block)
+        with _Spinner("Loading Field population") as sp:
+            try:
+                with _silence_stdout():
+                    raw = np.load(target_file, allow_pickle=True)
+                    if hasattr(raw, 'item') and isinstance(raw.item(), dict):
+                        data_block = raw.item().get('data', [])
+                    else:
+                        data_block = raw
 
-            if len(all_field_rows) > 0:
-                num = max(1, len(all_field_rows) // field_sample_divisor)
-                sampled = random.sample(all_field_rows, num)
+                    if isinstance(data_block, np.ndarray):
+                        all_field_rows = data_block.tolist()
+                    else:
+                        all_field_rows = list(data_block)
 
-                for row in sampled:
-                    cb = CompactBinary.from_list(data_list=list(row), schema='snapshot_std')
-                    # 【修复】: 保存原始 field 的分类标签
-                    cb.extra['source_label'] = cb.label
-                    cb.label = "Field"
-                    all_binaries.append(cb)
-                print(f"[Catalog] ✅ Sampled {num} Field systems (1/{field_sample_divisor} of total).")
-        except Exception as e:
-            print(f"[Catalog] ❌ Load Failed. Error: {e}")
+                    field_added = 0
+                    if len(all_field_rows) > 0:
+                        num = max(1, len(all_field_rows) // field_sample_divisor)
+                        sampled = random.sample(all_field_rows, num)
+
+                        for row in sampled:
+                            cb = CompactBinary.from_list(
+                                data_list=list(row), schema='snapshot_std'
+                            )
+                            cb.extra['source_label'] = cb.label
+                            cb.label = "Field"
+                            all_binaries.append(cb)
+                        field_added = num
+
+                sp.update(f"({field_added} systems, 1/{field_sample_divisor} of total)")
+            except Exception as e:
+                sp.update(f"(FAILED: {e})")
     else:
-        print(f"[Catalog] ⚠️ Warning: Field file not found at {target_file}. Skipping Field population.")
+        print(f"[Catalog] ⚠️  Warning: Field file not found at {target_file}. Skipping.")
 
-    # 4. 计算 SNR 并整合最终数据格式
+    # --- 4. SNR computation --------------------------------------------------
     formatted_catalog = []
     seen_gc_ae = set()
-    print(f"[Catalog] Compute SNR for all the systems...")
-    for b in all_binaries:
-        if hasattr(b, 'compute_snr_analytical'):
-            snr_v = b.compute_snr_analytical(tobs_yr=tobs_yr, quick_analytical=False, verbose=False)
-        else:
-            snr_v = 0.0
+    total = len(all_binaries)
 
-        # 过滤完全重复的低信噪比 GC 点
-        if b.label == "GC" and snr_v < 0.1:
-            ae_tuple = (b.a, b.e)
-            if ae_tuple in seen_gc_ae:
-                continue
-            seen_gc_ae.add(ae_tuple)
+    with _Spinner(f"Computing SNR for {total} systems") as sp:
+        with _silence_stdout():
+            for idx, b in enumerate(all_binaries, start=1):
+                if hasattr(b, 'compute_snr_analytical'):
+                    snr_v = b.compute_snr_analytical(
+                        tobs_yr=tobs_yr, quick_analytical=False, verbose=False
+                    )
+                else:
+                    snr_v = 0.0
 
-        # 此时 b.extra 里面已经安全包含了 'source_label'
-        formatted_catalog.append([b.label, b.m1, b.m2, b.a, b.e, b.Dl, snr_v, b.extra])
+                # Deduplicate low-SNR GC points with identical (a, e)
+                if b.label == "GC" and snr_v < 0.1:
+                    ae_tuple = (b.a, b.e)
+                    if ae_tuple in seen_gc_ae:
+                        continue
+                    seen_gc_ae.add(ae_tuple)
 
-    # 5. 添加蒸发态群 (Evaporated Population)
+                formatted_catalog.append(
+                    [b.label, b.m1, b.m2, b.a, b.e, b.Dl, snr_v, b.extra]
+                )
+
+                # Update the spinner suffix periodically (not every iteration,
+                # to keep overhead negligible).
+                if idx % 50 == 0 or idx == total:
+                    sp.update(f"({idx}/{total})")
+
+    # --- 5. Evaporated population (optional) --------------------------------
     if include_evaporated:
-        print(f"[Catalog] Incorporating evaporated population at {evap_pct * 100:.1f}% ratio...")
-        evap_systems = _run_evaporation_simulation(pct=evap_pct)
+        with _Spinner(f"Simulating evaporated wide-field binaries ({evap_pct*100:.1f}%)") as sp:
+            with _silence_stdout():
+                evap_systems = _run_evaporation_simulation(pct=evap_pct)
+            for es in evap_systems:
+                es[7]['source_label'] = 'Evaporated_Field'
+            formatted_catalog.extend(evap_systems)
+            sp.update(f"({len(evap_systems)} systems)")
 
-        # 为了格式统一，手动把蒸发态源的 source_label 也塞进 metadata
-        for es in evap_systems:
-            # es 格式是 ['Field', m1, m2, a, e, Dl, snr, metadata_dict]
-            es[7]['source_label'] = 'Evaporated_Field'
+    # --- 6. Summary & plot --------------------------------------------------
+    print("-" * 64)
+    print(f"[Catalog] ✅ Successfully generated {len(formatted_catalog)} systems.")
+    print("=" * 64)
 
-        formatted_catalog.extend(evap_systems)
-
-    print(f"[Catalog] Successfully generated {len(formatted_catalog)} systems.")
-
-    # 6. 执行画图
     if plot:
         _plot_mw_catalog(formatted_catalog)
 
     return formatted_catalog
 
 
-# 再次挂载
+# Re-attach after redefinition
 LISAeccentric.getMWcatalog = getMWcatalog
