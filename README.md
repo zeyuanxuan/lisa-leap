@@ -3,7 +3,7 @@
 
 ## 📖 Overview
 
-**LEAP** (distributed on PyPI/GitHub as `lisa-leap`) is a Python toolkit for generating eccentric compact binary populations and computing their gravitational wave signals in the LISA band. It supports population synthesis, waveform computation, and signal analysis, including:
+**LEAP** (distributed on PyPI as `lisa-leap`) is a Python toolkit for generating eccentric compact binary populations and computing their gravitational wave signals in the LISA band. It supports population synthesis, waveform computation, and signal analysis, including:
 
 ### 📂 BBH Population Catalogs
 > **Note:** Each module provides methods such as **sample merger eccentricities** and **generate population snapshots**. The snapshot functions return a list of [**`CompactBinary`**](#compactbinary-class) objects.
