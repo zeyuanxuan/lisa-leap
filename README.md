@@ -177,12 +177,12 @@ print(f"Original Source: {metadata.get('source_label', 'Unknown')}")
 ```
 * **Output** (approximate — exact counts depend on stochastic realization and the shipped Field aggregate file):
   ```
-   Population size: ~7e5 systems (with background) / ~2e3 systems (without)
-   Sample System [GN]: m1=7.328737 M_sun, m2=9.115064 M_sun, a=3.3044e-02 AU, e=0.8935
-   Original Source: GN_YNC
+   Population size: 735084 systems
+   Sample System [GN]: m1=10.82333 M_sun, m2=8.562529 M_sun, a=1.2974e-01 AU, e=0.2276
+   Original Source: GN_Steadystate
   ```
 <p align="left">
-  <img src="./images/egmockMW1.png" width="500">
+  <img src="./images/egmockMW00.png" width="500">
 </p>
 
 ---
@@ -438,7 +438,7 @@ Automatically generates the time-domain waveform for the binary system and compu
 ```python
 # Extract the spectrum directly from a CompactBinary object
 f_axis, hc_num = my_binary.get_spectrum(
-    tobs_yr=1.0,
+    tobs_yr=0.1,
     ts=5.0,                 # 5-second sampling interval
     polarization='hplus',   # analyze the plus polarization
     plot=True
@@ -447,16 +447,15 @@ f_axis, hc_num = my_binary.get_spectrum(
 print(f"   Output: Tuple of 2 Elements")
 print(f"      [0] Frequency Axis     (shape: {f_axis.shape})")
 print(f"      [1] Numerical Spectrum (shape: {hc_num.shape})")
-print(f"   Peak Numerical Strain: {np.max(hc_num):.4e}")
 ```
 * **Output**:
    ```
       Output: Tuple of 2 Elements
-        [0] Frequency Axis     (shape: (1767549,))
-        [1] Numerical Spectrum (shape: (1767549,))
+         [0] Frequency Axis     (shape: (315360,))
+         [1] Numerical Spectrum (shape: (315360,))
    ```
 <p align="left">
-<img src="./images/characteristic_strain_num.png" width="500">
+<img src="./images/characteristic_strain_num00.png" width="500">
 </p>
 
 ---
@@ -499,7 +498,7 @@ strain_res_list = my_binary.compute_characteristic_strain(tobs_yr=4.0, plot=True
 ```
 * **Output**:
 <p align="left">
-  <img src="./images/characteristic_strain.png?v=2" width="500">
+  <img src="./images/characteristic_strain00.png" width="500">
 </p>
 
 ---
