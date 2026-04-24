@@ -438,7 +438,7 @@ Automatically generates the time-domain waveform for the binary system and compu
 ```python
 # Extract the spectrum directly from a CompactBinary object
 f_axis, hc_num = my_binary.get_spectrum(
-    tobs_yr=0.1,
+    tobs_yr=1.0,
     ts=5.0,                 # 5-second sampling interval
     polarization='hplus',   # analyze the plus polarization
     plot=True
@@ -455,7 +455,7 @@ print(f"      [1] Numerical Spectrum (shape: {hc_num.shape})")
          [1] Numerical Spectrum (shape: (315360,))
    ```
 <p align="left">
-<img src="./images/characteristic_strain_num00.png" width="500">
+<img src="./images/characteristic_strain_num000.png" width="500">
 </p>
 
 ---
