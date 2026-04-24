@@ -139,7 +139,7 @@ For deeper control — custom populations, LISA-response projection, noise-curve
 ---
 ## 🚀 If you simply want to get a catalog...
 
-> **📥 Pre-generated catalog available:** If you don't want to run the generator yourself, a pre-computed catalog of 10 Milky Way realizations is shipped with the repository as `MW_BBH_catalog_10realizations.csv` and can be downloaded directly from the GitHub page. Each row follows the same schema as the `getMWcatalog()` return value (see below), so you can load it with `pandas` or `numpy` and plug the rows into `CompactBinary.from_list(row, schema='snapshot_std')` for downstream analysis.
+> **📥 Pre-generated catalog available:** If you don't want to run the generator yourself, a pre-computed catalog of 10 Milky Way realizations is shipped with the repository and can be downloaded directly here: [**`MW_BBH_catalog_10realizations.csv`**](https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/MW_BBH_catalog_10realizations.csv). Each row follows the same schema as the `getMWcatalog()` return value (see below), so you can load it with `pandas` or `numpy` and plug the rows into `CompactBinary.from_list(row, schema='snapshot_std')` for downstream analysis.
 
 Or, you can use the all-in-one `getMWcatalog()` function.
 
