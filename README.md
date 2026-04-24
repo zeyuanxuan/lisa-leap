@@ -32,7 +32,7 @@
 
 ## 💾 Installation
 
-To install the latest version of using pip, simply run:
+To install the latest version using `pip`, simply run:
 
 ```bash
 pip install lisa-leap
