@@ -182,7 +182,7 @@ print(f"Original Source: {metadata.get('source_label', 'Unknown')}")
    Original Source: GN_Steadystate
   ```
 <p align="left">
-  <img src="./images/egmockMW00.png" width="500">
+  <img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/egmockMW00.png" width="500">
 </p>
 
 ---
@@ -405,7 +405,7 @@ wf_data_obj = my_binary.compute_waveform(
 ```
 * **Output**:
 <p align="left">
-  <img src="./images/waveformeg.png" width="500">
+  <img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/waveformeg.png" width="500">
 </p>
 
 ---
@@ -455,7 +455,7 @@ print(f"      [1] Numerical Spectrum (shape: {hc_num.shape})")
          [1] Numerical Spectrum (shape: (315360,))
    ```
 <p align="left">
-<img src="./images/characteristic_strain_num000.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/characteristic_strain_num000.png" width="500">
 </p>
 
 ---
@@ -498,7 +498,7 @@ strain_res_list = my_binary.compute_characteristic_strain(tobs_yr=4.0, plot=True
 ```
 * **Output**:
 <p align="left">
-  <img src="./images/characteristic_strain00.png" width="500">
+  <img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/characteristic_strain00.png" width="500">
 </p>
 
 ---
@@ -564,7 +564,7 @@ if evolve_res is not None:
           - Value: 8069.5495
   ```
 <p align="left">
-  <img src="./images/hc_evolve.png" width="500">
+  <img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/hc_evolve.png" width="500">
 </p>
 
 ---
@@ -599,7 +599,7 @@ print(f"   Mean Eccentricity: {np.mean(gn_e_samples)}")
     Mean Eccentricity: 3.791297808628803e-05
     ```
 <p align="left">
-<img src="./images/GNecc_LIGO00.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/GNecc_LIGO00.png" width="500">
 </p>
 
 ---
@@ -649,7 +649,7 @@ print(f"   Output List Length: {len(gn_snapshot)} systems")
     Output List Length: 5498 systems
     ```
 <p align="left">
-<img src="./images/GNsnapshot00.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/GNsnapshot00.png" width="500">
 </p>
 
 ---
@@ -683,7 +683,7 @@ print(f"   Output Shape: {np.shape(gc_e_samples)}")
    Output Shape: (5000,)
     ```
 <p align="left">
-<img src="./images/GCecc_LIGO.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/GCecc_LIGO.png" width="500">
 </p>
 
 ---
@@ -715,7 +715,7 @@ print(f"   Output List Length: {len(gc_data_full)}")
    Output List Length: 71835
     ```
 <p align="left">
-<img src="./images/GCsnapshot00.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/GCsnapshot00.png" width="500">
 </p>
 
 ---
@@ -819,10 +819,10 @@ print(f"   Output List Length: {len(field_progs)}")
    Output List Length: 100000
     ```
 <p align="left">
-<img src="./images/Field_sma00.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/Field_sma00.png" width="500">
 </p>
 <p align="left">
-<img src="./images/Field_lifetime00.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/Field_lifetime00.png" width="500">
 </p>
 
 ---
@@ -848,7 +848,7 @@ print(f"   Output Shape: {np.shape(field_e_samples)}")
    Output Shape: (5000,)
     ```
 <p align="left">
-<img src="./images/Fieldecc_LIGO.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/Fieldecc_LIGO.png" width="500">
 </p>
 
 ---
@@ -882,7 +882,7 @@ print(f"   Output List Length: {len(field_snapshot_mw)}")
    Output List Length: 72
     ```
 <p align="left">
-<img src="./images/Field_snapshot.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/Field_snapshot.png" width="500">
 </p>
 
 ---
@@ -948,7 +948,7 @@ waveform_data_B = leap.Waveform.compute_waveform(
 ```
 * **Output**:
 <p align="left">
-<img src="./images/egwaveform_original.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/egwaveform_original.png" width="500">
 </p>
 
 #### Data inspection & visualization
@@ -993,7 +993,7 @@ plt.show()
     Sample time dt    : 4.4604e+00 seconds (Passed to next step)
     ```
 <p align="left">
-<img src="./images/egwaveform1.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/egwaveform1.png" width="500">
 </p>
 
 ---
@@ -1039,7 +1039,7 @@ if lisa_resp is not None:
    Max Response Amplitude: 1.2626e-20
     ```
 <p align="left">
-<img src="./images/response0.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/response0.png" width="500">
 </p>
 
 ---
@@ -1222,7 +1222,7 @@ if isinstance(hc_res, list) and len(hc_res) == 5:
          [4] Contribution to Snf                      (shape: (14093,))
     ```
 <p align="left">
-<img src="./images/characteristic_strain01.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/characteristic_strain01.png" width="500">
 </p>
 
 ---
@@ -1266,7 +1266,7 @@ print(f"      [1] Numerical Spectrum (shape: {hc_num.shape})")
          [1] Numerical Spectrum (shape: (1767549,))
    ```
 <p align="left">
-<img src="./images/characteristic_strain_num01.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/characteristic_strain_num01.png" width="500">
 </p>
 
 ---
@@ -1309,7 +1309,7 @@ else:
       Snf_tot shape: (1000,)
     ```
 <p align="left">
-<img src="./images/background00.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/background00.png" width="500">
 </p>
 
 ---
@@ -1356,7 +1356,7 @@ plt.show()
    Freq Range: [1.0e-05, 1.0e+00] Hz
     ```
 <p align="left">
-<img src="./images/N2A5.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/N2A5.png" width="500">
 </p>
 
 ---
@@ -1403,7 +1403,7 @@ curve_data = leap.Noise.get_noise_curve(plot=True)
 ```
 * **Output**:
 <p align="left">
-<img src="./images/official.png" width="500">
+<img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/official.png" width="500">
 </p>
 
 ---
