@@ -32,9 +32,25 @@
 
 ## 💾 Installation
 
-You can install `lisa-leap` directly from GitHub. Please choose the method that matches your environment.
+### ✅ Quick install (recommended)
 
-> **Note on naming:** The distribution package name (used by `pip`) is `lisa-leap`, while the import name (used inside Python code) is `leap`.
+To install the latest version of `lisa-leap` from PyPI, simply run:
+
+```bash
+pip install lisa-leap
+```
+
+Then in Python:
+
+```python
+import leap
+```
+
+---
+
+### 🔧 Alternative: install directly from GitHub
+
+If you prefer to install the latest `main` branch (e.g., to pick up changes that haven't been released to PyPI yet), choose the method that matches your environment.
 
 #### Method 1: Jupyter Notebook / Google Colab 
 If you are working in a notebook (Jupyter, Colab, Kaggle), run the following command in a code cell.
@@ -71,8 +87,8 @@ module load python/3.9.6
 python your_script.py
 ```
 
-#### Updating to the Latest Version
-If you have previously installed `lisa-leap` and want to pull the latest updates from the `main` branch. To force a clean reinstallation, add the `--upgrade`, `--no-cache-dir`, and `--force-reinstall` flags:
+#### Updating to the Latest Version (from GitHub)
+If you have previously installed `lisa-leap` from GitHub and want to pull the latest updates from the `main` branch, add the `--upgrade`, `--no-cache-dir`, and `--force-reinstall` flags to force a clean reinstallation:
 
 ```bash
 pip install --upgrade --no-cache-dir --force-reinstall "https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip"
@@ -139,7 +155,7 @@ For deeper control — custom populations, LISA-response projection, noise-curve
 ---
 ## 🚀 If you simply want to get a catalog...
 
-> **📥 Pre-generated catalog available:** If you don't want to run the generator yourself, a pre-computed catalog of 10 Milky Way realizations is shipped with the repository and can be downloaded directly from here: [**`MW_BBH_catalog_10realizations.csv`**](https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/MW_BBH_catalog_10realizations.csv), or from the [**`Github webpage`**](https://github.com/zeyuanxuan/lisa-leap/tree/main)). Each row follows the same schema as the `getMWcatalog()` return value (see below), so you can load it with `pandas` or `numpy` and plug the rows into `CompactBinary.from_list(row, schema='snapshot_std')` for downstream analysis.
+> **📥 Pre-generated catalog available:** If you don't want to run the generator yourself, a pre-computed catalog of 10 Milky Way realizations is shipped with the repository and can be downloaded directly here: [**`MW_BBH_catalog_10realizations.csv`**](https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/MW_BBH_catalog_10realizations.csv). Each row follows the same schema as the `getMWcatalog()` return value (see below), so you can load it with `pandas` or `numpy` and plug the rows into `CompactBinary.from_list(row, schema='snapshot_std')` for downstream analysis.
 
 Or, you can use the all-in-one `getMWcatalog()` function.
 
