@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite the paper below."
+title: "LEAP: LISA Eccentricity Astrophysics Package"
+authors:
+  - family-names: "Xuan"
+    given-names: "Zeyuan"
+
+preferred-citation:
+  type: article
+  title: "Eccentric Stellar-mass Binary Black Holes: Population, Detectability, and Waveform Analysis in the LISA and LIGO Era"
+  authors:
+    - family-names: "Xuan"
+      given-names: "Zeyuan"
+    - family-names: "Naoz"
+      given-names: "Smadar"
+    - family-names: "Kremer"
+      given-names: "Kyle"
+    - family-names: "Katz"
+      given-names: "Michael L."
+    - family-names: "Kocsis"
+      given-names: "Bence"
+    - family-names: "Michaely"
+      given-names: "Erez"
+  journal: "In preparation"
+  year: 2026
