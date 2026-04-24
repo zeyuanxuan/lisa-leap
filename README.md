@@ -32,7 +32,7 @@
 
 ## 💾 Installation
 
-To install the stable version of `lisa-leap` from PyPI, simply run:
+To install the latest version of 'leap' using 'pip', simply run:
 
 ```bash
 pip install lisa-leap
@@ -46,7 +46,7 @@ import leap
 
 ---
 
-If you prefer to install the latest version via Github (e.g., to pick up changes that haven't been released to PyPI yet), choose the method that matches your environment.
+Or, you can install the latest development version via GitHub. Please choose the method that matches your environment:
 
 #### Method 1: Jupyter Notebook / Google Colab 
 If you are working in a notebook (Jupyter, Colab, Kaggle), run the following command in a code cell.
