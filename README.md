@@ -588,7 +588,7 @@ Randomly samples $N$ merger eccentricities for BBHs formed in Galactic Nuclei, d
 **Example:**
 ```python
 gn_e_samples = leap.GN.sample_eccentricities(
-    n_samples=5000, max_bh_mass=50.0, plot=True
+    n_samples=5000, max_bh_mass=100.0, plot=True
 )
 print(f"   Output Shape: {np.shape(gn_e_samples)}")
 print(f"   Mean Eccentricity: {np.mean(gn_e_samples)}")
@@ -599,7 +599,7 @@ print(f"   Mean Eccentricity: {np.mean(gn_e_samples)}")
     Mean Eccentricity: 3.791297808628803e-05
     ```
 <p align="left">
-<img src="./images/GNecc_LIGO.png" width="500">
+<img src="./images/GNecc_LIGO00.png" width="500">
 </p>
 
 ---
@@ -621,7 +621,7 @@ print(f"   Sample Item: {gn_progenitors[0]}")
 * **Output**:
     ```
    Output List Length: 3
-   Sample Item: <CompactBinary [GN_Progenitor]: M=50.6+25.7 m_sun, a=3.395e-01AU, e=0.9278, Dl=8.0kpc | e2_init=0.505, i_init_rad=2.167, a2_init=1.57e+04, a_final=1.45e-05, e_final=3.04e-06, lifetime_yr=1.03e+08>
+   Sample Item: <CompactBinary [GN_Progenitor]: M=9.7+8.8 m_sun, a=2.322e-01AU, e=0.9797, Dl=8.0kpc | e2_init=0.911, i_init_rad=0.783, a2_init=1.08e+04, a_final=9.06e-06, e_final=2.02e-05, lifetime_yr=1.07e+07>
     ```
 
 ---
@@ -640,16 +640,16 @@ Generates a snapshot of the BBH population currently in the GN. This includes sy
 **Example:**
 ```python
 gn_snapshot = leap.GN.get_snapshot(
-    rate_gn=2.0, age_ync=6.0e6, n_ync_sys=100, max_bh_mass=50.0, plot=True
+    rate_gn=3.0, age_ync=6.0e6, n_ync_sys=100, max_bh_mass=100.0, plot=True
 )
 print(f"   Output List Length: {len(gn_snapshot)} systems")
 ```
 * **Output**:
     ```
-   Output List Length: 1806 systems
+    Output List Length: 5498 systems
     ```
 <p align="left">
-<img src="./images/GNsnapshot0.png" width="500">
+<img src="./images/GNsnapshot00.png" width="500">
 </p>
 
 ---
@@ -674,7 +674,7 @@ Randomly samples $N$ merger eccentricities for GC BBHs at the LIGO frequency ban
 **Example:**
 ```python
 gc_e_samples = leap.GC.sample_eccentricities(
-    n=5000, channel_name='KL Triple', plot=True
+    n=5000, channel_name='Incluster', plot=True
 )
 print(f"   Output Shape: {np.shape(gc_e_samples)}")
 ```
@@ -712,10 +712,10 @@ print(f"   Output List Length: {len(gc_data_full)}")
 ```
 * **Output**:
     ```
-   Output List Length: 2325
+   Output List Length: 71835
     ```
 <p align="left">
-<img src="./images/GCsnapshot.png" width="500">
+<img src="./images/GCsnapshot00.png" width="500">
 </p>
 
 ---
@@ -816,13 +816,13 @@ print(f"   Output List Length: {len(field_progs)}")
 ```
 * **Output**:
     ```
-   Output List Length: 50000
+   Output List Length: 100000
     ```
 <p align="left">
-<img src="./images/Field_sma.png" width="500">
+<img src="./images/Field_sma00.png" width="500">
 </p>
 <p align="left">
-<img src="./images/Field_lifetime.png" width="500">
+<img src="./images/Field_lifetime00.png" width="500">
 </p>
 
 ---
@@ -959,6 +959,7 @@ After generation, it's useful to verify the data structure, calculate the sampli
 
 **Example:**
 ```python
+import matplotlib.pyplot as plt
 t_vec, h_plus, h_cross = waveform_data[0], waveform_data[1], waveform_data[2]
 
 print(f"   Output Structure: List of 3 Numpy Arrays")
@@ -1085,11 +1086,11 @@ snr_num = leap.Waveform.compute_snr_numerical(
     dt_sample_sec=dt_val_sec,
     strainlist=h_plus
 )
-print(f"   [Numerical]  SNR ~ {snr_num:.4f}")
+print(f"   [Numerical]  SNR for hplus ~ {snr_num:.4f}")
 ```
 * **Output**:
     ```
-   [Numerical]  SNR ~ 283.0686
+   [Numerical]  SNR for hplus ~ 141.5342
     ```
 
 ---
@@ -1118,8 +1119,8 @@ print(f"   Sqrt(Inner Product): {np.sqrt(inner_prod):.4f} (Should match Numerica
 ```
 * **Output**:
     ```
-   Inner Product Value: 8.0128e+04
-   Sqrt(Inner Product): 283.0686 (Should match Numerical SNR)
+   Inner Product Value: 2.0032e+04
+   Sqrt(Inner Product): 141.5342 (Should match Numerical SNR)
     ```
 
 ---
@@ -1214,14 +1215,14 @@ if isinstance(hc_res, list) and len(hc_res) == 5:
 * **Output**:
     ```
       Output: List of 5 Elements
-        [0] Frequency List                           (shape: (14093,))
-        [1] Smoothed Spectrum (hc_env)               (shape: (14093,))
-        [2] Individual Harmonics (hc_insp)           (shape: (14093,))
-        [3] Non-evolving Harmonics (hc_nonevolve)    (shape: (14093,))
-        [4] Contribution to Snf                      (shape: (14093,))
+         [0] Frequency List                           (shape: (14093,))
+         [1] Smoothed Spectrum (hc_env)               (shape: (14093,))
+         [2] Individual Harmonics (hc_insp)           (shape: (14093,))
+         [3] Non-evolving Harmonics (hc_nonevolve)    (shape: (14093,))
+         [4] Contribution to Snf                      (shape: (14093,))
     ```
 <p align="left">
-<img src="./images/characteristic_strain.png" width="500">
+<img src="./images/characteristic_strain01.png" width="500">
 </p>
 
 ---
@@ -1261,11 +1262,11 @@ print(f"      [1] Numerical Spectrum (shape: {hc_num.shape})")
 * **Output**:
    ```
       Output: Tuple of 2 Elements
-     [0] Frequency Axis     (shape: (1767549,))
-     [1] Numerical Spectrum (shape: (1767549,))
+         [0] Frequency Axis     (shape: (1767549,))
+         [1] Numerical Spectrum (shape: (1767549,))
    ```
 <p align="left">
-<img src="./images/characteristic_strain_num.png" width="500">
+<img src="./images/characteristic_strain_num01.png" width="500">
 </p>
 
 ---
@@ -1308,7 +1309,7 @@ else:
       Snf_tot shape: (1000,)
     ```
 <p align="left">
-<img src="./images/background.png" width="500">
+<img src="./images/background00.png" width="500">
 </p>
 
 ---
