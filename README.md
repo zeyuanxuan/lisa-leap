@@ -146,7 +146,7 @@ snr_val = binary.compute_snr_analytical(tobs_yr=4.0)
 print(f"4-year sky-averaged SNR = {snr_val:.2f}")
 ```
 
-For deeper control — custom populations, LISA-response projection, noise-curve swaps, batch population strain, numerical inner product, etc. — see the corresponding sections in §3–§5 below.
+For deeper control (custom populations, LISA response, noise curve swaps, numerical inner product, etc.), see the corresponding sections in §3–§5 below.
 
 ---
 ## 🚀 If you simply want to get a catalog...
