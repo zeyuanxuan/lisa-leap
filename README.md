@@ -32,63 +32,82 @@
 
 ## 💾 Installation
 
-To install the latest version using `pip`, simply run:
+To install the latest version using `pip`, simply run the following in your terminal (Command Prompt / PowerShell on Windows, Terminal on macOS / Linux):
 
-```bash
+````bash
 pip install lisa-leap
-```
+````
 
 Then in Python:
 
-```python
+````python
 import leap
-```
+````
+
+**Note for Mac/Linux:** If `pip` is not found or defaults to Python 2, try `pip3` instead:
+
+````bash
+pip3 install lisa-leap
+````
 
 ---
 
 Or, you can install the latest development version via GitHub. Please choose the method that matches your environment:
 
-#### Method 1: Jupyter Notebook / Google Colab 
+#### Method 1: Jupyter Notebook / Google Colab
+
 If you are working in a notebook (Jupyter, Colab, Kaggle), run the following command in a code cell.
-```
+
+````
 !pip install https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip
-```
+````
 
 #### Method 2: Terminal / Command Line
+
 If you are using a standard terminal, run the command without the `!`
-```
+
+````
 pip install https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip
-```
+````
+
 **Note for Mac/Linux:** If `pip` is not found or defaults to Python 2, try `pip3` instead:
-```
+
+````
 pip3 install https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip
-```
+````
 
 #### Method 3: University Clusters / HPC
+
 If you are running jobs on a cluster using existing Python modules (like `module load python/3.9.6`), **load the same module before installing.**
 
 Step 1 — load the Python module you intend to use in your job script:
-```
+
+````
 # Example: if your submission script uses python/3.9.6, load it now:
 module load python/3.9.6
-```
+````
+
 Step 2 — install the package with `--user`. This installs the package into your local directory specific to that Python version (e.g., `~/.local/lib/python3.9/site-packages`).
-```
+
+````
 python3 -m pip install --user https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip
-```
+````
+
 Step 3 — import `leap` in your code and run your job:
-```
+
+````
 # In your job script (.sh/.pbs):
 module load python/3.9.6
 python your_script.py
-```
+````
 
 #### Updating to the Latest Version (from GitHub)
+
 If you have previously installed `lisa-leap` from GitHub and want to pull the latest updates from the `main` branch, add the `--upgrade`, `--no-cache-dir`, and `--force-reinstall` flags to force a clean reinstallation:
 
-```bash
+````bash
 pip install --upgrade --no-cache-dir --force-reinstall "https://github.com/zeyuanxuan/lisa-leap/archive/refs/heads/main.zip"
-```
+````
 
 ---
 ## ⚡ Quickstart
