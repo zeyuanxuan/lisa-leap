@@ -1,21 +1,18 @@
-# 文件路径: leap/__init__.py
+# filepath leap/__init__.py
 
-# 1. 从同级目录的 core.py 中导入核心类 以及 控制函数
+# import from core.py
 try:
-    # 导入核心类
     from .core import LISAeccentric as _CoreEngine
     from .core import CompactBinary
 
     from .core import set_output_control, set_verbose
 
 except ImportError as e:
-    # 错误提示：帮助调试路径问题
     raise ImportError(f"LISAeccentric package initialization failed. Could not import 'core.py'.\nDetails: {e}")
 
-# 2. 【自动实例化】
+
 _default_instance = _CoreEngine()
 
-# 3. 【挂载功能模块】
 GN = _default_instance.GN
 GC = _default_instance.GC
 Field = _default_instance.Field
@@ -23,11 +20,9 @@ Waveform = _default_instance.Waveform
 Noise = _default_instance.Noise
 getMWcatalog = _default_instance.getMWcatalog
 
-# 4. 【暴露数据类】
 CompactBinary = CompactBinary
 
-# 5. 定义包的公共接口
-# 这里决定了 from leap import * 会导入什么
+# public interface
 __all__ = [
     'GN',
     'GC',

@@ -29,13 +29,10 @@ try:
     from .Field_modeling import Field_BBH, Field_BBH_Elliptical
     from .Waveform_modeling import PN_waveform, hc_cal
 except ImportError as e:
-    # 调试信息：如果相对导入失败，尝试打印详细路径信息
     import os
-
     print(f"CRITICAL ERROR: Package import failed in {__file__}")
     print(f"Current Working Directory: {os.getcwd()}")
     print(f"Error Details: {e}")
-    # 再次抛出错误，强制终止程序，避免后面的 NameError
     raise e
 
 # ==============================================================================
@@ -46,57 +43,32 @@ _SHOW_WARNINGS = True
 
 
 def set_output_control(verbose: bool = True, show_warnings: bool = True):
-    """
-    设置全局输出控制。
-
-    Args:
-        verbose (bool): 是否显示 print 输出 (stdout)。
-        show_warnings (bool): 是否显示 RuntimeWarning 等警告信息 (stderr)。
-    """
     global _VERBOSE, _SHOW_WARNINGS
     _VERBOSE = verbose
     _SHOW_WARNINGS = show_warnings
 def set_verbose(verbose: bool):
-    """
-    [兼容旧接口] 简易设置函数。
-    如果设置为 False，则同时关闭打印和警告。
-    """
     set_output_control(verbose=verbose, show_warnings=verbose)
 def print(*args, **kwargs):
-    """
-    覆盖本模块内的 print，根据 _VERBOSE 开关决定是否执行。
-    """
     if _VERBOSE:
         builtins.print(*args, **kwargs)
 
 def mute_if_global_verbose_false(func):
-    """
-    装饰器：根据全局开关 _VERBOSE 和 _SHOW_WARNINGS，
-    决定是否在函数执行期间屏蔽 stdout 或过滤 warnings。
-    (名称保持不变，但在内部集成了双开关逻辑)
-    """
-
     def wrapper(*args, **kwargs):
-        # 使用 ExitStack 灵活管理多个上下文管理器
         with contextlib.ExitStack() as stack:
-
-            # 1. 如果关闭 Verbose，将标准输出重定向到空设备 (屏蔽外部库的 print)
             if not _VERBOSE:
                 fnull = stack.enter_context(open(os.devnull, 'w'))
                 stack.enter_context(contextlib.redirect_stdout(fnull))
 
-            # 2. 如果关闭 Warnings，捕获并忽略所有警告
             if not _SHOW_WARNINGS:
                 stack.enter_context(warnings.catch_warnings())
                 warnings.simplefilter("ignore")
 
-            # 执行原函数
             return func(*args, **kwargs)
 
     return wrapper
 
 # ==============================================================================
-# 核心数据类: CompactBinary
+# CompactBinary
 # ==============================================================================
 @dataclass
 class CompactBinary:
@@ -111,7 +83,7 @@ class CompactBinary:
         label (str): Environment/Origin tag (e.g., 'GN_Steadystate', 'Field').
         extra (dict): Storage for variable extra parameters (SNR, Lifetime, Rates, etc.).
     """
-    # 核心参数 (必填，不允许为空)
+
     m1: float
     m2: float
     a: float
@@ -119,27 +91,21 @@ class CompactBinary:
     Dl: float
     label: str
 
-    # 扩展参数
     extra: Dict[str, Any] = field(default_factory=dict)
 
     def __repr__(self):
         """String representation (Updated to print all extra params)."""
-        # 1. 基础物理量
         info = f"<CompactBinary [{self.label}]: M={self.m1:.1f}+{self.m2:.1f} m_sun, a={self.a:.3e}AU, e={self.e:.4f}, Dl={self.Dl:.1f}kpc"
 
-        # 2. 动态遍历并添加 extra 中的所有信息
         if self.extra:
             extra_str_list = []
             for k, v in self.extra.items():
-                # 针对浮点数做自适应格式化，避免输出过长
                 if isinstance(v, float):
-                    # 如果数值很大或很小，用科学计数法；否则保留3位小数
                     val_str = f"{v:.2e}" if (abs(v) < 1e-2 or abs(v) > 1e4) and v != 0 else f"{v:.3f}"
                 else:
                     val_str = str(v)
                 extra_str_list.append(f"{k}={val_str}")
 
-            # 将 extra 信息拼接在后面
             info += " | " + ", ".join(extra_str_list)
 
         return info + ">"
@@ -239,21 +205,20 @@ class CompactBinary:
         自动生成波形并计算数值特征应变谱 (hc, num)。
 
         Args:
-            tobs_yr (float): 观测时间 (years)。
-            ts (float, optional): 采样时间步长 (seconds)。若为 None 则使用自适应采样。
-            polarization (str): 选取的极化分量，'hplus' 或 'hcross'。
-            theta, phi (float): 观测方位角。
-            plot (bool): 是否绘制与 LISA 噪声曲线的对比图。
-            verbose (bool): 是否打印运行信息。
+            tobs_yr (float):  (years)
+            ts (float, optional):  (seconds)。if None, use self-adaptive sampling
+            polarization (str): 'hplus' or 'hcross'
+            theta, phi (float): observational angles
+            plot (bool):
+            verbose (bool):
 
         Returns:
-            (xs, hc_num): 频率轴和数值特征应变谱。
+            (xs, hc_num): frequency axis and characteristic strain
         """
         if verbose:
             print(f"\n[CompactBinary] Computing Numerical Spectrum for {self.label}...")
             print(f"                Polarization: {polarization}, Tobs: {tobs_yr} yr")
 
-        # 1. 生成波形 (强制 plot=False，避免在此处弹出时域波形图)
         wf = self.compute_waveform(
             tobs_yr=tobs_yr,
             initial_orbital_phase=initial_orbital_phase,
@@ -274,7 +239,6 @@ class CompactBinary:
 
         t_arr, hplus, hcross = wf
 
-        # 2. 提取实际使用的采样率 fs = 1/dt
         dt_actual = t_arr[1] - t_arr[0]
         if dt_actual <= 0:
             print("[Error] Invalid time step in generated waveform.")
@@ -282,7 +246,6 @@ class CompactBinary:
 
         fs = 1.0 / dt_actual
 
-        # 3. 选择极化分量
         if polarization.lower() == 'hplus':
             h_target = hplus
         elif polarization.lower() == 'hcross':
@@ -291,7 +254,6 @@ class CompactBinary:
             print(f"[Warning] Unknown polarization '{polarization}', defaulting to 'hplus'.")
             h_target = hplus
 
-        # 4. 调用底层的数值特征应变计算器
         xs, hc_num = PN_waveform.compute_characteristic_strain_numerical(
             h_t=h_target,
             ts=fs,
@@ -433,7 +395,6 @@ class CompactBinary:
             print(f"[CompactBinary] Computing evolving strain for {self.label}...")
             print(f"                m={self.m1}+{self.m2}, a={self.a:.4e} AU, e={self.e:.4f}, Tobs={tobs_yr} yr")
 
-        # 调用 hc_cal.calculate_evolving_system
         results = hc_cal.calculate_evolving_system(
             m1=self.m1,
             m2=self.m2,
@@ -585,14 +546,13 @@ class LISAeccentric:
                 """Feature 2: Get Progenitor Population (Initial States)."""
                 print(f"\n[GN] Getting {n_inspect} Progenitor Systems...")
 
-                # 数据来源：GN_BBH.get_random_merger_systems
-                # 格式: [m1, m2, a1, e1, e2, i_init, a2, afin, efin, t_final]
+                # GN_BBH.get_random_merger_systems
+                # [m1, m2, a1, e1, e2, i_init, a2, afin, efin, t_final]
                 raw_data = GN_BBH.get_random_merger_systems(n=n_inspect)
 
                 objs = []
                 for row in raw_data:
-                    # 1. 实例化基础对象 (必填项)
-                    # GN 核系统的距离默认设为 8.0 kpc
+
                     obj = CompactBinary(
                         m1=float(row[0]),
                         m2=float(row[1]),
@@ -602,18 +562,18 @@ class LISAeccentric:
                         label="GN_Progenitor"
                     )
 
-                    # 2. 将额外信息存入 extra 字典 (而不是 append)
+
                     obj.extra = {
-                        'e2_init': float(row[4]),  # 新增: initial e2
-                        'i_init_rad': float(row[5])/180*pi,  # 新增: initial inclination
-                        'a2_init': float(row[6]),  # 新增: initial a2
-                        'a_final': float(row[7]),  # 新增: final a1
-                        'e_final': float(row[8]),  # 新增: final e1
+                        'e2_init': float(row[4]),
+                        'i_init_rad': float(row[5])/180*pi,
+                        'a2_init': float(row[6]),
+                        'a_final': float(row[7]),
+                        'e_final': float(row[8]),
                         'lifetime_yr': float(row[9])
                     }
 
                     objs.append(obj)
-                    print(obj)  # 会打印出 extra 中的信息
+                    print(obj)
                 return objs
 
             @mute_if_global_verbose_false
@@ -622,18 +582,17 @@ class LISAeccentric:
                 """Feature 3: Snapshot Generation (LISA Band / Current State)."""
                 print(f"\n[GN] Generating Snapshot: Rate={rate_gn}/Myr, YNC Age={age_ync / 1e6} Myr")
 
-                # 数据来源: GN_BBH.generate_snapshot_population
-                # 格式: [label, dist, a, e, i, m1, m2, snr]
+                # GN_BBH.generate_snapshot_population
+                # [label, dist, a, e, i, m1, m2, snr]
                 raw_data = GN_BBH.generate_snapshot_population(
                     Gamma_rep=rate_gn, ync_age=age_ync, ync_count=n_ync_sys, max_bh_mass=max_bh_mass
                 )
 
-                # 按 SNR 排序 (索引 7)
+
                 raw_data.sort(key=lambda x: x[7], reverse=True)
 
                 objs = []
                 for row in raw_data:
-                    # 1. 实例化基础对象
                     obj = CompactBinary(
                         label=str(row[0]),
                         Dl=float(row[1]),
@@ -643,9 +602,8 @@ class LISAeccentric:
                         m2=float(row[6])
                     )
 
-                    # 2. 将额外信息存入 extra 字典
                     obj.extra = {
-                        'inclination_rad': float(row[4])/180*pi,  # 新增: 当前时刻的倾角 i
+                        'inclination_rad': float(row[4])/180*pi,
                         'snr': float(row[7])
                     }
 
@@ -653,8 +611,6 @@ class LISAeccentric:
 
                 print(f"Altogether {len(objs)} systems survived.")
                 if plot:
-                    # 注意 plot 函数可能需要根据 raw_data 的新列结构进行微调，
-                    # 但这里只负责传递数据
                     GN_BBH.plot_snapshot_population(raw_data, title="Simulated MW Galactic Nucleus BBH Population")
                 return objs
 
@@ -664,11 +620,9 @@ class LISAeccentric:
                 Extra Feature: Calculate GW Peak Frequency.
                 Supports parameter input OR CompactBinary object input.
                 """
-                # 自动切换逻辑
                 if system is not None:
                     m1, m2, a_au, e = system.m1, system.m2, system.a, system.e
                 elif isinstance(m1, CompactBinary):
-                    # 如果用户把对象传给了第一个参数
                     system = m1
                     m1, m2, a_au, e = system.m1, system.m2, system.a, system.e
 
@@ -854,23 +808,22 @@ class LISAeccentric:
             """
             Generate GW waveform with flexible input modes.
 
-            【必填参数】:
             :param m1_msun:   Mass 1 [Solar Mass]
             :param m2_msun:   Mass 2 [Solar Mass]
-            :param a_au:      根据 input_mode 不同，此参数的物理含义不同：
-                              - input_mode='a_au':        输入为半长轴 [AU] (默认)
-                              - input_mode='forb_Hz':     输入为轨道频率 f_orb [Hz] (注意：此时参数名虽叫a_au，但值应填频率)
-                              - input_mode='fangular_Hz': 输入为角/峰值频率 [Hz]
+            :param a_au:      Meaning fepends on input modes:
+                              - input_mode='a_au':        Semi-major axis [AU] (default)
+                              - input_mode='forb_Hz':     (radial) orbital frequency [Hz] (note here the name is a_au, but use freq)
+                              - input_mode='fangular_Hz': angular orbital frequency [Hz]
             :param e:         Eccentricity
             :param Dl_kpc:    Luminosity Distance [kpc]
             :param tobs_yr:   Observation time [years]
             :param input_mode: Mode selector ('a_au', 'forb_Hz', 'fangular_Hz')
 
-            【采样控制参数】:
+            Sampling parameters:
             :param ts:              Time step [seconds].
             :param points_per_peak: Sampling points per orbital peak.
             """
-            # 1. 基础物理量转换 (G=c=1 units / seconds)
+            # (G=c=1 units / seconds)
             m1 = m1_msun * m_sun
             m2 = m2_msun * m_sun
             M_total = m1 + m2
@@ -880,11 +833,9 @@ class LISAeccentric:
             label = f"Mode_{input_mode}"
 
             f_orb = 0.0
-            a_au_display = 0.0  # 仅用于打印显示，反推出来的 a
+            a_au_display = 0.0
 
-            # === 根据 input_mode 解释 a_au 参数 ===
             if input_mode == 'a_au':
-                # --- 模式 A: 标准模式，a_au 即为 AU ---
                 real_a_au = a_au
                 a = real_a_au * AU
                 if a > 0:
@@ -892,32 +843,25 @@ class LISAeccentric:
                 a_au_display = real_a_au
 
             elif input_mode == 'forb_Hz':
-                # --- 模式 B: 输入为轨道频率 (Hz) ---
-                # 此时 a_au 变量里存的是 Hz
+                # a_au is actually frequency [Hz]
                 f_orb = a_au
 
-                # 反推 a 用于显示
                 if f_orb > 0:
                     a_s = np.power(M_total / ((2 * np.pi * f_orb) ** 2), 1.0 / 3.0)
                     a_au_display = a_s / AU
 
             elif input_mode == 'fangular_Hz':
-                # --- 模式 C: 输入为角频率/峰值频率 (Hz), 求解 f_orb ---
-                # 此时 a_au 变量里存的是 Hz
                 target_f0 = a_au
 
-                # 辅助函数: f -> a (G=c=1)
                 def get_a0_from_f00(f_val, M):
                     return np.power(M / ((2 * np.pi * f_val) ** 2), 1.0 / 3.0)
 
-                # 辅助函数: 计算频移 delta f
                 def deltafvalue(a, e_in, M):
                     n = np.power(a, -3 / 2) * np.sqrt(M)
                     Porb = 2 * pi / n
-                    # Hinder+10 近似公式
+                    # Hinder+10
                     return 6 * np.power(2 * pi, 2 / 3) / (1 - e_in * e_in) * np.power(M, 2 / 3) * np.power(Porb, -5 / 3)
 
-                # 求解残差函数
                 def frequency_residual(f00_guess):
                     if f00_guess <= 0: return 1e6  # 保护
                     a_guess = get_a0_from_f00(f00_guess, M_total)
@@ -926,10 +870,9 @@ class LISAeccentric:
                     return f0_calc - target_f0
 
                 try:
-                    # 使用 Newton 法求解 f_orb (initial guess = target_f0)
+                    # Newton f_orb (initial guess = target_f0)
                     f_orb = newton(frequency_residual, x0=target_f0, tol=1e-7, maxiter=50)
 
-                    # 反推 a 用于显示
                     a_s = get_a0_from_f00(f_orb, M_total)
                     a_au_display = a_s / AU
                 except Exception as err:
@@ -938,7 +881,6 @@ class LISAeccentric:
             else:
                 raise ValueError(f"Unknown input_mode: {input_mode}. Use 'a_au', 'forb_Hz', or 'fangular_Hz'.")
 
-            # --- 逻辑提示 ---
             if verbose:
                 if ts is not None:
                     sampling_mode = f"Fixed TimeStep (ts={ts} s)"
@@ -948,17 +890,14 @@ class LISAeccentric:
                 print(f"\n[Waveform] Generating Waveform...")
                 print(f"           Mode:   {input_mode}")
                 print(f"           Params: m={m1_msun}+{m2_msun} Msun, e={e:.3f}")
-                # 显示原始输入值
                 print(f"           Input:  {a_au:.4e} ({input_mode})")
-                # 显示推导出的物理量
                 print(f"           Derived: f_orb={f_orb:.4e} Hz, a~={a_au_display:.4f} AU")
 
-            # 调用底层库
             wf = PN_waveform.eccGW_waveform(
                 f_orb, e, tobs, m1, m2, theta, phi, Dl,
                 l0=initial_orbital_phase,
-                ts=ts,  # 优先参数
-                N=points_per_peak,  # 次要参数 (若 ts 存在则被屏蔽)
+                ts=ts,
+                N=points_per_peak,
                 PN_orbit=PN_orbit, PN_reaction=PN_reaction,
                 max_memory_GB=max_memory_GB, verbose=verbose
             )
@@ -975,7 +914,7 @@ class LISAeccentric:
         @mute_if_global_verbose_false
         def compute_LISA_response(self, dt_sample_sec, hplus, hcross,
                                   theta_sky=np.pi / 4, phi_sky=np.pi / 4, psi_sky=np.pi / 4,
-                                  timeshift_sec=0.0,  # <--- 改名: 明确单位为秒
+                                  timeshift_sec=0.0,
                                   kappa=0.0, lamb=0.0, mode='interp', plot=True):
             """
             Compute LISA detector response.
@@ -985,19 +924,17 @@ class LISAeccentric:
             :param timeshift_sec: Time shift [seconds]. Shifts the signal in time domain.
                                   (e.g., propagation delay).
             """
-            # 1. 长度校验
             n_points = len(hplus)
             if len(hcross) != n_points:
                 raise ValueError(f"[Error] Waveform length mismatch: hplus={n_points}, hcross={len(hcross)}")
 
             print(f"[Waveform] Computing LISA Response (dt={dt_sample_sec:.4e} s, shift={timeshift_sec} s)...")
 
-            # 2. 内部重建标准相对时间轴 (Standard Time Axis starting from 0)
+            # (Standard Time Axis starting from 0)
             # timelist = 0, dt, 2dt, ...
             timelist = np.arange(n_points) * dt_sample_sec
 
-            # 3. 调用底层计算
-            # 注意：将带单位的 timeshift_sec 传给底层 (假设底层参数仍叫 t0)
+            # pass timeshift_sec to basic functions
             response = PN_waveform.compute_LISA_response(
                 timelist, hplus, hcross, theta_sky, phi_sky, psi_sky,
                 t0=timeshift_sec,  # <--- Mapping here
@@ -1021,16 +958,14 @@ class LISAeccentric:
 
             :param dt_sample_sec: Sampling interval [seconds] (Scalar).
             """
-            # 1. 长度检查
             if len(h1) != len(h2):
                 raise ValueError(f"[Error] Inner product length mismatch: {len(h1)} vs {len(h2)}")
 
             if len(h1) < 2: return 0.0
 
-            # 2. 计算采样率 fs [Hz]
+            # fs [Hz]
             fs = 1.0 / dt_sample_sec
 
-            # 3. 调用底层
             val = PN_waveform.inner_product(fs, h1, h2, phase_difference)
             print(f"[Analysis] Inner Product = {val:.4e}")
             return val
@@ -1042,7 +977,6 @@ class LISAeccentric:
 
             :param dt_sample_sec: Sampling interval [seconds] (Scalar).
             """
-            # 复用 inner_product
             val = self.compute_inner_product(dt_sample_sec, strainlist, strainlist)
             snr_num = np.sqrt(val)
             print(f"[Analysis] SNR_numerical = {snr_num:.4f}")
@@ -1052,10 +986,10 @@ class LISAeccentric:
         def compute_snr_analytical(self, m1_msun, m2_msun, a_au, e, Dl_kpc, tobs_yr, quick_analytical=False):
             """
             Estimate Sky-Averaged SNR (Analytical).
-            必填: m1_msun, m2_msun, a_au, e, Dl_kpc, tobs_yr
-            可选: quick_analytical (bool) - 若为 True，使用快速几何近似计算。
+            m1_msun, m2_msun, a_au, e, Dl_kpc, tobs_yr
+            quick_analytical (bool) - if True, use quick analytical method
             """
-            # 1. 基础单位转换 (转为几何单位 G=c=1, 时间单位: 秒)
+            # (G=c=1)
             m1_s = m1_msun * m_sun
             m2_s = m2_msun * m_sun
             a_s = a_au * AU
@@ -1069,12 +1003,11 @@ class LISAeccentric:
 
                 used_tobs = tobs_s
 
-                # --- 优化逻辑: 先用快速下限判断，避免不必要的积分 ---
                 try:
-                    # 1. 先算合并时间下限 (Fast Check)
+                    # (Fast Check)
                     t_lower = PN_waveform.tmerger_lower(m1_s, m2_s, a_s, e)
                     #print('!',t_lower)
-                    # 2. 只有当下限小于观测时间时，才需要算精确积分
+
                     if t_lower <= tobs_s:
                         t_real = PN_waveform.tmerger_integral(m1_s, m2_s, a_s, e)
 
@@ -1085,7 +1018,6 @@ class LISAeccentric:
                             used_tobs = t_real
 
                 except AttributeError:
-                    # 如果后端 PN_waveform 没有实现 tmerger_lower，则回退到直接算积分
                     try:
                         t_real = PN_waveform.tmerger_integral(m1_s, m2_s, a_s, e)
                         if t_real <= tobs_s:
@@ -1093,28 +1025,22 @@ class LISAeccentric:
                     except Exception:
                         pass
                 except Exception as e:
-                    # 其他计算错误(如 e=1)
                     pass
 
-                # --- 3. 计算 SNR (几何近似) ---
                 rp_s = a_s * (1 - e)
                 if rp_s <= 0: return 0.0
 
-                # 峰值频率
                 term_f = (m1_s + m2_s) / (4 * pi * pi * np.power(rp_s, 3.0))
                 f0max = 2 * np.sqrt(term_f)
 
-                # 峰值幅度
                 h0max = np.sqrt(32 / 5) * m1_s * m2_s / (Dl_s * a_s * (1 - e))
 
-                # 噪声水平
                 Sn_val = PN_waveform.S_n_lisa(f0max)
 
                 if Sn_val <= 0:
                     snr = 0.0
                 else:
                     sqrtsnf = np.sqrt(Sn_val)
-                    # 使用修正后的 used_tobs
                     snr = h0max / sqrtsnf * np.sqrt(used_tobs * np.power(1 - e, 1.5))
 
                 print(f"[Analysis] SNR_analytical (Quick) = {snr:.4f}")
@@ -1128,7 +1054,7 @@ class LISAeccentric:
         def compute_merger_time(self, m1_msun, m2_msun, a0_au, e0):
             """
             Estimate Merger Timescale.
-            必填: m1_msun, m2_msun, a_au, e
+            m1_msun, m2_msun, a_au, e
             """
             m1 = m1_msun * m_sun
             m2 = m2_msun * m_sun
@@ -1142,7 +1068,7 @@ class LISAeccentric:
         def evolve_orbit(self, m1_msun, m2_msun, a0_au, e0, delta_t_yr):
             """
             Estimate orbital parameters after given time.
-            必填: m1_msun, m2_msun, a0_au, e0, delta_t_yr
+            m1_msun, m2_msun, a0_au, e0, delta_t_yr
             """
             m1 = m1_msun * m_sun
             m2 = m2_msun * m_sun
@@ -1159,7 +1085,7 @@ class LISAeccentric:
         def compute_characteristic_strain_single(self, m1_msun, m2_msun, a_au, e, Dl_kpc, tobs_yr, plot=True):
             """
             Compute h_c for single system.
-            必填: m1_msun, m2_msun, a_au, e, Dl_kpc, tobs_yr
+            m1_msun, m2_msun, a_au, e, Dl_kpc, tobs_yr
             """
             m1 = m1_msun * m_sun
             m2 = m2_msun * m_sun
@@ -1223,14 +1149,13 @@ class LISAeccentric:
             """
             print(f"[Analysis] Computing numerical characteristic strain (fs={ts} Hz)...")
 
-            # 直接调用 PN_waveform 中写好的底层逻辑
             return PN_waveform.compute_characteristic_strain_numerical(h_t, ts, plot=plot)
 
         @mute_if_global_verbose_false
         def run_population_strain_analysis(self, binary_list: List[Any], tobs_yr, plot=True):
             """
-            批处理计算 h_c。
-            必填: binary_list, tobs_yr
+            batch calculation of h_c。
+            binary_list, tobs_yr
             """
 
             tobs = tobs_yr * years
@@ -1246,8 +1171,6 @@ class LISAeccentric:
     # ==========================================================================
     class _Noise_Handler:
         def __init__(self):
-            # 定位 CSV 文件路径
-            # core.py 和 LISA_noise_ASD.csv 在同一级目录
             current_dir = os.path.dirname(os.path.abspath(__file__))
             self.noise_file_path = os.path.join(current_dir, 'LISA_noise_ASD.csv')
             self.base_backup_name = 'LISA_noise_ASD_original'
@@ -1257,7 +1180,7 @@ class LISAeccentric:
             Generates LISA Noise ASD based on the selected model.
             integrated with Log-Log extrapolation for better physical accuracy.
             """
-            # 1. 生成目标频率网格
+
             flist = np.logspace(np.log10(f_min), np.log10(f_max), n_points)
 
             if model == 'N2A5':
@@ -1298,9 +1221,7 @@ class LISAeccentric:
                     return flist, np.zeros_like(flist)
 
                 try:
-                    # 1. 读取并清洗数据
                     data = np.loadtxt(source_path, delimiter=',')
-                    # 若文件包含表头，解开下面注释:
                     # data = np.loadtxt(source_path, delimiter=',', skiprows=1)
 
                     data = data[data[:, 0].argsort()]
@@ -1311,22 +1232,20 @@ class LISAeccentric:
                     f_ref = f_ref[mask]
                     asd_ref = asd_ref[mask]
 
-                    # 2. 准备 Log-Log 空间数据
                     log_f_ref = np.log10(f_ref)
                     log_asd_ref = np.log10(asd_ref)
 
-                    # 3. 计算低频端斜率 (Low-f Slope)
                     # slope = (y2 - y1) / (x2 - x1)
                     if len(log_f_ref) >= 2:
                         slope_low = (log_asd_ref[1] - log_asd_ref[0]) / (log_f_ref[1] - log_f_ref[0])
                     else:
                         slope_low = 0  # Fallback
 
-                    # 4. 目标 Log 频率
+
                     log_f_target = np.log10(flist)
 
-                    # 5. 执行插值 (左侧设为 NaN 以便后续处理，右侧设为 0.0 即 ASD=1.0)
-                    # 注意：right=0.0 意味着 log(ASD)=0 -> ASD=1.0
+                    # Interpolate
+                    # Note: right=0.0 means log(ASD)=0 -> ASD=1.0
                     log_asd_target = np.interp(
                         log_f_target,
                         log_f_ref,
@@ -1335,7 +1254,7 @@ class LISAeccentric:
                         right=0.0
                     )
 
-                    # 6. 处理低频 NaN (Power-law Extrapolation)
+                    # (Power-law Extrapolation)
                     # y = y0 + slope * (x - x0)
                     nan_mask = np.isnan(log_asd_target)
                     if np.any(nan_mask):
@@ -1343,14 +1262,12 @@ class LISAeccentric:
                         log_asd_target[nan_mask] = log_asd_ref[0] + \
                                                    slope_low * (log_f_target[nan_mask] - log_f_ref[0])
 
-                    # 7. 还原回线性空间
                     asd_final = np.power(10.0, log_asd_target)
 
                     return flist, asd_final
 
                 except Exception as e:
                     print(f"[Noise] Error processing official file: {e}")
-                    # 出错时返回默认值
                     return self.generate_noise_data(model='N2A5', f_min=f_min, f_max=f_max, n_points=n_points)
 
             else:
@@ -1366,19 +1283,15 @@ class LISAeccentric:
                 return
 
             try:
-                # 1. 直接读取 CSV
-                # 尝试两种读取方式，防止 header 导致的错误
                 try:
                     data = np.loadtxt(self.noise_file_path, delimiter=',')
                 except ValueError:
                     data = np.loadtxt(self.noise_file_path, delimiter=',', skiprows=1)
 
-                # 2. 预处理：按频率排序
                 data = data[data[:, 0].argsort()]
                 f_data = data[:, 0]
                 asd_data = data[:, 1]
 
-                # 过滤非正值（防止 log 报错）
                 mask = (f_data > 0) & (asd_data > 0)
                 f_data = f_data[mask]
                 asd_data = asd_data[mask]
@@ -1387,16 +1300,12 @@ class LISAeccentric:
                     print("[Noise] Warning: Not enough valid points in noise file.")
                     return
 
-                # 3. 准备数据 (Log-Log 空间)
                 log_f = np.log10(f_data)
                 log_asd = np.log10(asd_data)
 
-                # 计算低频斜率 (用于外推)
                 # Slope = dy / dx
                 low_f_slope = (log_asd[1] - log_asd[0]) / (log_f[1] - log_f[0])
 
-                # 4. 构建字典
-                # 注意：必须包含 'use_file': True，否则 PN_waveform 会忽略这些数据
                 noise_dict = {
                     'f_min': f_data[0],
                     'f_max': f_data[-1],
@@ -1405,11 +1314,10 @@ class LISAeccentric:
                     'low_f_slope': low_f_slope,
                     'log_f_0': log_f[0],
                     'log_asd_0': log_asd[0],
-                    'use_file': True  # <--- 关键修复：PN_waveform 原生加载器缺少此键
+                    'use_file': True
                 }
 
-                # 5. 强制注入
-                # 直接修改 imported module 的全局变量
+
                 PN_waveform._LISA_NOISE_DATA = noise_dict
                 print(f"[Noise] Force-injected updated noise profile (Points: {len(f_data)})")
                 print(f"        Slope: {low_f_slope:.4f}, f_range: [{f_data[0]:.1e}, {f_data[-1]:.1e}] Hz")
@@ -1424,14 +1332,12 @@ class LISAeccentric:
             """
             print("[Noise] Auto-reloading backend modules...")
             try:
-                # 1. 模块重载
                 importlib.reload(GN_BBH)
                 importlib.reload(Field_BBH)
                 importlib.reload(Field_BBH_Elliptical)
                 importlib.reload(hc_cal)
                 importlib.reload(PN_waveform)
 
-                # 2. 注入数据
                 self._inject_noise_data()
 
                 print("[Noise] Modules reloaded & Data injected.")
@@ -1441,7 +1347,7 @@ class LISAeccentric:
         @mute_if_global_verbose_false
         def update_noise_curve(self, data_list):
             """
-            更新噪声曲线文件，并自动备份旧文件。
+            change noise curve, and backup old noise curve
             input: data_list = [flist, ASDlist]
             """
             if len(data_list) != 2:
@@ -1451,7 +1357,7 @@ class LISAeccentric:
             flist, asdlist = data_list[0], data_list[1]
             abs_path = os.path.abspath(self.noise_file_path)
 
-            # 1. 备份
+
             if os.path.exists(self.noise_file_path):
                 i = 1
                 while True:
@@ -1463,9 +1369,7 @@ class LISAeccentric:
                         break
                     i += 1
 
-            # 2. 写入
             try:
-                # 确保 flist 递增排序，这对于后续插值很重要
                 sort_idx = np.argsort(flist)
                 flist = flist[sort_idx]
                 asdlist = asdlist[sort_idx]
@@ -1474,7 +1378,6 @@ class LISAeccentric:
                 np.savetxt(self.noise_file_path, data_to_save, delimiter=',', header='f,ASD', comments='')
                 print(f"[Noise] Updated noise file at: {os.path.basename(abs_path)}")
 
-                # 3. 重新加载并注入
                 self._reload_dependencies()
 
             except Exception as e:
@@ -1482,7 +1385,6 @@ class LISAeccentric:
 
         @mute_if_global_verbose_false
         def recover_noise_curve(self, version=None):
-            """恢复噪声曲线文件。"""
             target_dir = os.path.dirname(self.noise_file_path)
 
             if version == 'official':
@@ -1527,7 +1429,6 @@ class LISAeccentric:
                 print(f"[Noise] Error: File not found.")
                 return None
             try:
-                # 尝试读取，兼容有无 header
                 try:
                     data = np.loadtxt(self.noise_file_path, delimiter=',')
                 except ValueError:
@@ -1887,7 +1788,6 @@ def _print_catalog_config(tobs_yr, include_field_bkg, bkg_pct):
     print(f"  Observation time (Tobs) : {tobs_yr} yr")
     print(f"  Included populations:")
 
-    # ---------------- 修改了 GN 的信息输出 ----------------
     print(f"    • GN  (Galactic Nucleus)   "
           f"  loaded from gn_snapshots_aggregated.npy, sampled 1/20 (1 realization); rate_gn=3.0, age_ync=2~8 Myr")
     # ------------------------------------------------------
@@ -2035,20 +1935,17 @@ def getMWcatalog(self, plot=True, include_field_bkg=False, bkg_pct=0.001, tobs_y
         with _silence_stdout():
             for idx, b in enumerate(all_binaries, start=1):
 
-                # 步骤 1：先用 quick_analytical 试探
+                # quick_analytical try
                 snr_quick = b.compute_snr_analytical(tobs_yr=tobs_yr, quick_analytical=True, verbose=False)
 
-                # 步骤 2：如果大概率有信号 ( > 0.1 )，才进入耗时的全谐波积分
                 if snr_quick > 0.1:
                     snr_final = b.compute_snr_analytical(tobs_yr=tobs_yr, quick_analytical=False, verbose=False)
                     full_recompute_count += 1
                 else:
                     snr_final = snr_quick
 
-                # 覆盖写入系统属性
                 b.extra['snr'] = snr_final
 
-                # GC 低信噪比去重逻辑
                 if b.label == "GC" and snr_final < 0.1:
                     ae_tuple = (b.a, b.e)
                     if ae_tuple in seen_gc_ae:

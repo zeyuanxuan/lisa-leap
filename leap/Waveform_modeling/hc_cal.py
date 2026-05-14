@@ -15,15 +15,13 @@ import matplotlib.pyplot as plt
 from scipy.optimize import brentq
 import os
 from numba import njit, float64
-from scipy.interpolate import interp1d  # 必须引入这个库
+from scipy.interpolate import interp1d
 # --- Helper Functions for Precise Evolution (Peters 1964) ---
 from scipy.integrate import quad
 from scipy.interpolate import PchipInterpolator
 plt.rcParams['mathtext.fontset'] = 'cm'
 plt.rcParams['font.family'] = 'serif'
-# ==========================================
-# 1. 物理常数与核心数学/物理函数 (保持原样)
-# ==========================================
+
 
 m_sun = 1.9891e30 * sciconsts.G / np.power(sciconsts.c, 3.0)
 gama = 0.577215664901532860606512090082402431042159335
@@ -33,7 +31,7 @@ pc = 3.261 * sciconsts.light_year / sciconsts.c
 AU = sciconsts.au / sciconsts.c
 
 
-def J(n, x):  # 贝塞尔函数
+def J(n, x):  # Bessel func
     return scipy_special.jv(n, x)
 
 
@@ -76,15 +74,12 @@ _LISA_NOISE_DATA = None
 
 def _try_load_lisa_noise():
     """
-    尝试加载 LISA_noise_ASD.csv。
-    支持 Log-Log 预计算，并兼容 core.py 的注入机制。
-    自动搜索当前目录和上一级目录。
+    load LISA_noise_ASD.csv。
     """
     global _LISA_NOISE_DATA
     try:
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # 搜索路径策略：先找当前目录，再找上一级目录（兼容不同包结构）
         possible_paths = [
             os.path.join(current_dir, 'LISA_noise_ASD.csv'),
             os.path.join(os.path.dirname(current_dir), 'LISA_noise_ASD.csv')
@@ -97,29 +92,25 @@ def _try_load_lisa_noise():
                 break
 
         if file_path:
-            # 尝试读取
             try:
                 data = np.loadtxt(file_path, delimiter=',')
             except ValueError:
                 data = np.loadtxt(file_path, delimiter=',', skiprows=1)
 
-            # 1. 排序与清洗
             sort_idx = np.argsort(data[:, 0])
             sorted_data = data[sort_idx]
 
             f_data = sorted_data[:, 0]
             asd_data = sorted_data[:, 1]
 
-            # 过滤非正值
             mask = (f_data > 0) & (asd_data > 0)
             f_data = f_data[mask]
             asd_data = asd_data[mask]
 
-            # 2. 预计算 Log10 数据 (用于 Log-Log 插值)
             log_f = np.log10(f_data)
             log_asd = np.log10(asd_data)
 
-            # 3. 计算低频延拓斜率 (Slope)
+            # extrapolate at low freq
             # y = kx + b -> slope = (y1-y0)/(x1-x0)
             if len(log_f) >= 2:
                 low_f_slope = (log_asd[1] - log_asd[0]) / (log_f[1] - log_f[0])
@@ -129,8 +120,8 @@ def _try_load_lisa_noise():
             _LISA_NOISE_DATA = {
                 'f_min': f_data[0],
                 'f_max': f_data[-1],
-                'log_f': log_f,  # 存储 log(f)
-                'log_asd': log_asd,  # 存储 log(ASD)
+                'log_f': log_f,
+                'log_asd': log_asd,
                 'low_f_slope': low_f_slope,
                 'log_f_0': log_f[0],
                 'log_asd_0': log_asd[0],
@@ -146,7 +137,7 @@ def _try_load_lisa_noise():
         _LISA_NOISE_DATA = None
 
 
-# 初始化加载
+
 _try_load_lisa_noise()
 
 
@@ -221,7 +212,7 @@ def peters_factor_func(e):
 
 class MergerTimeAccelerator:
     """
-    预计算 Peters (1964) 积分因子的插值表。
+    Peters (1964)
     """
     def __init__(self, cache_file='merger_time_table.npz'):
         self.cache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), cache_file)
@@ -266,7 +257,6 @@ class MergerTimeAccelerator:
         if e > 0.99999: return (768.0 / 425.0) * np.power(1 - e ** 2, 3.5)
         return self.interpolator(e)
 
-# 初始化全局加速器 (必须在 Core 计算前)
 _ACCELERATOR = MergerTimeAccelerator()
 
 def tmerger_integral(m1, m2, a0, e0):
@@ -293,28 +283,21 @@ def dforb_dt(m1, m2, a, e):
     return fj2 / 2
 
 
-# ==========================================
-# 2. 核心计算逻辑
-# ==========================================
 def _core_calculator(args):
     """
-    底层计算核心。
     Args: (m1_SI, m2_SI, a_SI, e, Dl_SI, tobs_SI, target_max_points, verbose)
     """
     m1, m2, a, e, Dl, tobs, target_max_points, verbose = args
 
-    # [新增] 核心检查：如果寿命小于观测时间，截断观测时间
-    # 注意：这里的 m1, m2, a 已经是 SI 单位，可以直接传给 tmerger_integral
+    # here m1, m2, a are in SI units
     t_life = tmerger_integral(m1, m2, a, e)
     if t_life < tobs:
         if verbose:
             print(f"   [System Check] Life ({t_life/years:.2e} yr) < Tobs. Truncating Tobs.")
         tobs = t_life
 
-    # 1. 计算基频
     forb = 1 / 2 / pi * np.sqrt(m1 + m2) * np.power(a, -3.0 / 2.0)
 
-    # 2. 确定 n 的范围
     e_calc = min(e, 1 - 1e-16)
     n_peak = np.sqrt(1 + e_calc) * np.power((1 - e_calc), -3.0 / 2.0)
 
@@ -324,7 +307,6 @@ def _core_calculator(args):
     if n_end < n_start:
         return [], [], [], []
 
-    # 智能稀疏采样逻辑
     step = 1
     total_harmonics = n_end - n_start
     if total_harmonics > target_max_points:
@@ -351,52 +333,38 @@ def _core_calculator(args):
     return fn_arr, hnc, hc_avg, Snfvec
 
 
-# ==========================================
-# 3. 封装接口 (部分)
-# ==========================================
 
 def calculate_single_system(m1, m2, a, e, Dl, tobs=1.0*years, target_max_points=20000, verbose=True):
-    """
-    接口1: 单个系统计算
-    默认: verbose=True (允许打印), target_max_points=20000 (高精度)
-    """
     m1_si = m1
     m2_si = m2
     a_si = a
     Dl_si = Dl
     tobs_si = tobs
 
-    # 传入 verbose=True
+
     args = (m1_si, m2_si, a_si, e, Dl_si, tobs_si, target_max_points, verbose)
     fn, hnc, hc_avg, snf = _core_calculator(args)
 
-    # [新增] 计算 individual harmonic representation (hc,non-evolve)
+    # individual harmonic representation (hc,non-evolve)
     if len(fn) > 0:
-        # 重构 f_orb (基于开普勒第三定律，与 _core_calculator 内部一致)
         forb = 1 / 2 / pi * np.sqrt(m1_si + m2_si) * np.power(a_si, -3.0 / 2.0)
-        # 根据定义: hc,non-evolve = hc,env * sqrt(forb / f)
+        # hc,non-evolve = hc,env * sqrt(forb / f)
         hc_non_evolve = hc_avg * np.sqrt(forb / fn)
     else:
         hc_non_evolve = []
 
-    # 按要求：将 hc_non_evolve 放在紧接着 hnc 的后面
     return [fn, hc_avg, hnc, hc_non_evolve, snf]
 
 
-# [新增功能] 4. 单个系统绘图 (部分)
-# ==========================================
+
 def plot_single_system_results(single_system_res, xlim=[1e-6, 1], ylim=[1e-23, 1e-14]):
-    """
-    接口4: 单个系统绘图
-    输入: single_system_res (calculate_single_system 的返回值)
-    """
     fn = single_system_res[0]
     hc_avg = single_system_res[1]
     hnc = single_system_res[2]            # hc,insp (Scatter)
-    hc_non_evolve = single_system_res[3]  # [新增] hc,non-evolve (Scatter)
-    # Snf = single_system_res[4]          # 索引因为插入新变量而后移一位
+    hc_non_evolve = single_system_res[3]  # hc,non-evolve (Scatter)
+    # Snf = single_system_res[4]
 
-    # 生成 LISA 噪声曲线用于背景对比
+
     f_lisa = np.logspace(np.log10(xlim[0]), np.log10(xlim[1]), 1000)
     hc_lisa = np.sqrt(f_lisa * S_n_lisa(f_lisa))
 
@@ -413,9 +381,9 @@ def plot_single_system_results(single_system_res, xlim=[1e-6, 1], ylim=[1e-23, 1
     if len(fn) > 0:
         plt.scatter(fn, hnc, color='red', s=4, alpha=0.7, zorder=5, label=r'$h_{c, n} = \sqrt{2f^2h_n^2/\dot{f}}$ (Instantaneous hc value for each harmonic)')
 
-    # 4. [新增] Plot hc_non_evolve (Scatter points for non-evolving representation)
+    # 4. Plot hc_non_evolve (Scatter points for non-evolving representation)
     if len(fn) > 0:
-        # 使用绿色区分另外两种 representation
+        # two different representations
         plt.scatter(fn, hc_non_evolve, color='green', s=4, alpha=0.7, zorder=6, label=r'$h_{c, \rm non-evolve} = \sqrt{2 h_n^2 f T_{\rm obs}}$ (Non-evolving harmonic representation)')
 
     plt.xscale('log')
@@ -432,15 +400,10 @@ def plot_single_system_results(single_system_res, xlim=[1e-6, 1], ylim=[1e-23, 1
 
 
 def process_population_batch(system_list_raw, tobs=1.0*years, n_cores=1, target_max_points=1000):
-    """
-    接口2: 批量处理系统
-    强制: verbose=False (在 batch 内部屏蔽所有打印), target_max_points 默认为 1000 (低精度/高速度)
-    """
 
     pool_args = []
     tobs_si = tobs
 
-    # 强制静默
     batch_verbose = False
 
     for item in system_list_raw:
@@ -451,7 +414,6 @@ def process_population_batch(system_list_raw, tobs=1.0*years, n_cores=1, target_
         m1_si = item[4] * m_sun
         m2_si = item[5] * m_sun
 
-        # [核心] 将 target_max_points 和 verbose=False 传入元组
         pool_args.append((m1_si, m2_si, a_si, e_val, Dl_si, tobs_si, target_max_points, batch_verbose))
 
     logfrange = np.linspace(-6, 0, 1000)
@@ -462,8 +424,7 @@ def process_population_batch(system_list_raw, tobs=1.0*years, n_cores=1, target_
     all_hcavg_lists = []
     all_hnc_lists = []
 
-    # [核心] 如果需要完全静默，这里也不打印；如果仅屏蔽 worker 打印，这里可以保留
-    # 根据“屏蔽 print 输出”的要求，这里也加上 verbose 判断，默认为 False
+
     if batch_verbose:
         print(f"Start calculation for {len(system_list_raw)} systems (Sequential)...")
 
@@ -488,58 +449,13 @@ def process_population_batch(system_list_raw, tobs=1.0*years, n_cores=1, target_
 
     return [faxis, Snf_tot, all_fn_lists, all_hcavg_lists, all_hnc_lists]
 
-# # [新增功能] 4. 单个系统绘图
-# # ==========================================
-# def plot_single_system_results(single_system_res, xlim=[1e-6, 1], ylim=[1e-23, 1e-14]):
-#     """
-#     接口4: 单个系统绘图
-#     输入: single_system_res (calculate_single_system 的返回值)
-#     """
-#     fn = single_system_res[0]
-#     hc_avg = single_system_res[1]
-#     hnc = single_system_res[2]  # This is scatter
-#     # Snf = single_system_res[3]
-#
-#     # 生成 LISA 噪声曲线用于背景对比
-#     f_lisa = np.logspace(np.log10(xlim[0]), np.log10(xlim[1]), 1000)
-#     hc_lisa = np.sqrt(f_lisa * S_n_lisa(f_lisa))
-#
-#     plt.figure(figsize=(10, 7), dpi=100)
-#
-#     # 1. Plot LISA Noise
-#     plt.plot(f_lisa, hc_lisa, color='black', linewidth=2, label='LISA Sensitivity ($\sqrt{f S_n(f)}$)')
-#
-#     # 2. Plot hc_avg (Curve)
-#     if len(fn) > 0:
-#         plt.plot(fn, hc_avg, color='blue', linewidth=1.5, label=r'$h_{c, \mathrm{avg}} = \sqrt{2f^2h_n^2/f_{\rm orb} \times T_{\rm obs}}$ (Time-integrated spectrum - enclosed area reflects SNR)')
-#
-#     # 3. Plot hc_scatter (Scatter points)
-#     if len(fn) > 0:
-#         plt.scatter(fn, hnc, color='red', s=4, alpha=0.7, zorder=5, label=r'$h_{c, n} = \sqrt{2f^2h_n^2/\dot{f}}$ (Instantaneous hc value for each harmonic)')
-#
-#     plt.xscale('log')
-#     plt.yscale('log')
-#     plt.xlabel('Frequency [Hz]', fontsize=14)
-#     plt.ylabel('Characteristic Strain $h_c$', fontsize=14)
-#     plt.xlim(xlim)
-#     plt.ylim(ylim)
-#     plt.grid(True, which="both", ls="--", alpha=0.3)
-#     plt.legend(fontsize=12, loc='upper left')
-#     plt.title('Single Eccentric Binary Spectrum', fontsize=16)
-#     plt.tight_layout()
-#     plt.show()
-
 def plot_simulation_results0(simulation_result_list,xlim=[1e-6,1],ylim=[1e-24, 1e-15]):
-    """
-    接口3: 绘图
-    输入: simulation_result_list
-    """
-    # 解包，注意现在 list 长度为 5
+
     faxis = simulation_result_list[0]
     Snf_tot = simulation_result_list[1]
     all_fn_lists = simulation_result_list[2]
     all_hcavg_lists = simulation_result_list[3]
-    all_hnc_lists = simulation_result_list[4]  # 这里接收了，虽然不画
+    all_hnc_lists = simulation_result_list[4]
 
     hc_background = np.sqrt(faxis * Snf_tot)
     sqrtfsnflist = np.sqrt(faxis * S_n_lisa(faxis))
@@ -548,21 +464,16 @@ def plot_simulation_results0(simulation_result_list,xlim=[1e-6,1],ylim=[1e-24, 1
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
 
-    # 画 LISA 灵敏度曲线
     plt.plot(faxis, sqrtfsnflist, label="LISA Noise", color='black', linewidth=2, zorder=10)
 
-    # 画每个系统的折线图 (使用 hc_avg)
     label_added = False
 
-    # zip遍历，忽略 hnc_lists
     for fn_sys, hc_avg_sys in zip(all_fn_lists, all_hcavg_lists):
         if len(fn_sys) > 0:
             lbl = "Individual Systems" if not label_added else None
-            # 折线图
             plt.plot(fn_sys, hc_avg_sys, color='blue', alpha=0.3, linewidth=1, label=lbl)
             label_added = True
 
-    # 画总背景噪声
     plt.plot(faxis, hc_background, label=r"Total Background ($\sqrt{f S_n(f)_{\mathrm{tot}}}$)", color='red', linestyle='--', linewidth=2,
              zorder=10)
 
@@ -578,11 +489,7 @@ def plot_simulation_results0(simulation_result_list,xlim=[1e-6,1],ylim=[1e-24, 1
     plt.show()
 
 def plot_simulation_results(simulation_result_list, xlim=[1e-6, 1], ylim=[5e-24, 5e-15]):
-    """
-    接口3: 绘图 (修改版：背景噪声线加粗 linewidth=4)
-    输入: simulation_result_list
-    """
-    # 解包
+
     faxis = simulation_result_list[0]
     Snf_tot = simulation_result_list[1]
     all_fn_lists = simulation_result_list[2]
@@ -591,34 +498,29 @@ def plot_simulation_results(simulation_result_list, xlim=[1e-6, 1], ylim=[5e-24,
 
     hc_background = np.sqrt(faxis * Snf_tot)
 
-    # 保持原有的 S_n_lisa 调用
-    # 请确保 S_n_lisa 函数在外部已定义
+
     sqrtfsnflist = np.sqrt(faxis * S_n_lisa(faxis))
 
     fig3 = plt.figure(figsize=(7, 6), dpi=100)
 
-    # --- 字号调整：刻度字体变大 ---
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
 
-    # 画 LISA 灵敏度曲线
     plt.plot(faxis, sqrtfsnflist, label="LISA Noise", color='black', linewidth=2, zorder=10)
 
-    # 画每个系统的折线图
     label_added = False
 
     for fn_sys, hc_avg_sys in zip(all_fn_lists, all_hcavg_lists):
-        if len(fn_sys) > 1:  # 至少2个点才能画线
+        if len(fn_sys) > 1:
             lbl = "Individual Systems" if not label_added else None
 
-            # --- 插值平滑处理逻辑 ---
             x_raw = np.array(fn_sys)
             y_raw = np.array(hc_avg_sys)
             sort_idx = np.argsort(x_raw)
             x_raw = x_raw[sort_idx]
             y_raw = y_raw[sort_idx]
 
-            x_plot, y_plot = x_raw, y_raw  # 默认情况
+            x_plot, y_plot = x_raw, y_raw
 
             if len(x_raw) >= 4:
                 try:
@@ -640,18 +542,14 @@ def plot_simulation_results(simulation_result_list, xlim=[1e-6, 1], ylim=[5e-24,
                     y_plot = 10 ** f_interp(x_new_log)
                 except:
                     pass
-            # --- 插值逻辑结束 ---
 
             plt.plot(x_plot, y_plot, color='blue', alpha=0.3, linewidth=1, label=lbl)
             label_added = True
 
-    # 画总背景噪声 (修改点：linewidth 改为 4)
     plt.plot(faxis, hc_background, label=r"Total GW Background",# ($\sqrt{f S_n(f)_{\mathrm{tot}}}$)
              color='red', linestyle='--', linewidth=4, zorder=10)
 
-    # --- 样式调整核心部分 ---
 
-    # 1. 使用 LaTeX 数学公式斜体，并大幅增加字号
     plt.xlabel(r'$f\ [\mathrm{Hz}]$', fontsize=24)
     plt.ylabel(r'$h_c$', fontsize=24)
 
@@ -660,7 +558,7 @@ def plot_simulation_results(simulation_result_list, xlim=[1e-6, 1], ylim=[5e-24,
     plt.xlim(xlim)
     plt.ylim(ylim)
 
-    # 2. 图例移至右上角 (upper right)，并增大字号
+
     plt.legend(loc='upper right', fontsize=16)
 
     plt.grid(True, which="both", ls="--", alpha=0.2)
@@ -821,30 +719,27 @@ def solve_ae_after_time(m1, m2, a0, e0, dt):
     """
     current_life = GWtime(m1, m2, a0, e0)
 
-    # 1. 检查正向演化是否已经合并
+    # check if merged
     if dt > 0 and dt >= current_life:
         return 0.0, 0.0
 
     t_rem_target = current_life - dt
 
-    # 2. 核心守恒量 c0 求解 (正反向均适用)
+    # solve for c0
     fact_e0 = peters_factor_func(e0)
     if fact_e0 == 0: return 0.0, 0.0  # Should not happen if e0 > 1e-10
 
     c0 = a0 / fact_e0
 
-    # 3. 动态设定搜索区间
     if dt > 0:
-        # 正向演化：e 减小
         e_lower, e_upper = 1e-6, e0
     elif dt < 0:
-        # 反向演化：e 增大 (历史上的轨道偏心率更高)
+        # backward evolution
         e_lower, e_upper = e0, 1-1e-7
     else:
         # dt == 0
         return a0, e0
 
-    # 4. 求解目标 e_curr
     try:
         e_curr = brentq(lambda e: GWtime(m1, m2, c0 * peters_factor_func(e), e) - t_rem_target,
                         e_lower, e_upper, xtol=1e-12, maxiter=50)
@@ -852,7 +747,6 @@ def solve_ae_after_time(m1, m2, a0, e0, dt):
         print(f"[Warning] solve_ae failed for dt={dt}: {e}. Returning initial values.")
         e_curr = e0
 
-    # 5. 根据 e_curr 和 c0 还原 a_curr
     a_curr = c0 * peters_factor_func(e_curr)
     return a_curr, e_curr
 
@@ -862,33 +756,23 @@ def solve_ae_after_time(m1, m2, a0, e0, dt):
 
 def get_orbit_at_f(target_f, c0, m_total_sec):
     """
-    辅助函数：给定目标轨道频率 f，反解出此时的 e 和 a。
-    利用守恒量 c0 = a / peters_factor_func(e)
-    以及 f = 1/2pi * sqrt(M/a^3)
-    => f = 1/2pi * sqrt(M / [c0 * P(e)]^3 )
+    given f, solve e and a。
+    use c0 = a / peters_factor_func(e)
     """
-    # 目标半长轴 a_target
+    # a_target
     # f = 1/(2pi) * sqrt(M/a^3)  => a^3 = M / (2pi f)^2 => a = (M / (2pi f)^2)^(1/3)
     omega = 2 * pi * target_f
     a_target = np.power(m_total_sec / (omega ** 2), 1.0 / 3.0)
 
-    # 求解 e: a_target = c0 * peters_factor_func(e)
-    # 即 peters_factor_func(e) - a_target / c0 = 0
-    # P(e) 是单调递增的 (e=0->0, e=1->inf)
+    # solve e: a_target = c0 * peters_factor_func(e)
+    # peters_factor_func(e) - a_target / c0 = 0
     target_val = a_target / c0
 
-    # 边界检查
     if target_val <= 0: return 0.0, a_target  # Should not happen
 
-    # 寻找根
     try:
-        # e 的范围通常在 0 到 1 之间 (不含1)
-        # 对于 P(e)，e接近1时值非常大，e接近0时值接近0
-        # 我们使用 brentq
         e_sol = brentq(lambda e: peters_factor_func(e) - target_val, 1e-6, 0.99999, xtol=1e-12, maxiter=50)
     except ValueError:
-        # 如果找不到根，说明可能已经圆化 (e very small) 或者数值误差
-        # P(e) ~ e^(12/19). 如果 target_val 很小，e 也很小
         if target_val < 1e-4:
             e_sol = 1e-6
         else:
@@ -900,16 +784,11 @@ def get_orbit_at_f(target_f, c0, m_total_sec):
 def calculate_evolving_system(m1, m2, a, e, Dl, tobs_years=4.0, target_n_points=100,
                               all_harmonics=False, plot=True, verbose=True):
     """
-    计算演化双星系统的频谱轨迹和积分频谱。
-    [Update]:
-    1. 在绘图信息框中增加距离参数 (Dl)。
-    2. 修复 LaTeX 格式化问题。
-
+    calculate binary evolution and integrated spectrum
     Returns:
         [unified_f_axis, total_hc_spectrum, snapshots_data, snr_val]
     """
 
-    # 1. 单位转换
     m1_sec = m1 * m_sun
     m2_sec = m2 * m_sun
     m_total_sec = m1_sec + m2_sec
@@ -917,14 +796,12 @@ def calculate_evolving_system(m1, m2, a, e, Dl, tobs_years=4.0, target_n_points=
     Dl_sec = Dl * 1e3 * pc
     tobs_sec = tobs_years * years
 
-    # 2. 演化常数
     pf_val = peters_factor_func(e)
     c0 = a_sec / (pf_val if pf_val > 0 else 1e-10)
 
     r_isco = 6.0 * m_total_sec
     f_isco = 1.0 / (pi * np.power(6.0, 1.5) * m_total_sec)
 
-    # 3. 确定演化范围
     f_start = 1.0 / (2.0 * pi) * np.sqrt(m_total_sec / np.power(a_sec, 3.0))
     t_merger_total = tmerger_integral(m1_sec, m2_sec, a_sec, e)
     t_end_limit = min(t_merger_total, tobs_sec)
@@ -935,12 +812,10 @@ def calculate_evolving_system(m1, m2, a, e, Dl, tobs_years=4.0, target_n_points=
         a_final, e_final = solve_ae_after_time(m1_sec, m2_sec, a_sec, e, t_end_limit)
         f_end = 1.0 / (2.0 * pi) * np.sqrt(m_total_sec / np.power(a_final, 3.0))
 
-    # 4. 时间/频率网格
     n_steps = 100
     if f_end <= f_start: f_end = f_start * 1.0001
     f_orb_grid = np.geomspace(f_start, f_end, n_steps)
 
-    # 5. [Track] 锁定 hnc 用的谐波列表
     n_peak_0 = np.sqrt(1 + e) * np.power((1 - e), -1.5) if e < 0.999 else 1000
     n_max_0 = int(20 * n_peak_0)
 
@@ -955,7 +830,6 @@ def calculate_evolving_system(m1, m2, a, e, Dl, tobs_years=4.0, target_n_points=
     if 2 not in locked_n_indices and n_max_0 >= 2:
         locked_n_indices = np.sort(np.append(locked_n_indices, 2))
 
-    # 6. 准备总频谱容器
     unified_f_axis = np.geomspace(1e-6, 1.0, 2000)
     total_sq_strain = np.zeros_like(unified_f_axis)
 
@@ -1052,7 +926,7 @@ def calculate_evolving_system(m1, m2, a, e, Dl, tobs_years=4.0, target_n_points=
 
 def plot_evolving_spectrum(f_axis, hc_total, snapshots, sys_info, xlim=[1e-5, 1], ylim=[1e-23, 1e-15]):
     """
-    绘图函数：显示谐波演化轨迹 (hnc) 和总积分频谱 (hc_avg)。
+    plot (hnc) and (hc_avg)。
     [Update]: Added Distance (Dl) to info box.
     """
     import matplotlib.cm as cm

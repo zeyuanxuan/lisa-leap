@@ -113,18 +113,14 @@ C_val = sciconsts.c
 
 
 def J(n, x):
-    # scipy.special.jv 原生支持数组输入
     return scipy.special.jv(n, x)
 def g(n, e):
-    # n 可以是数组，e 是标量
-    # 这里所有的计算都会自动广播 (Broadcasting)
     ne = n * e
 
     term1 = J(n - 2, ne) - 2 * e * J(n - 1, ne) + 2 / n * J(n, ne) + 2 * e * J(n + 1, ne) - J(n + 2, ne)
     term2 = J(n - 2, ne) - 2 * J(n, ne) + J(n + 2, ne)
     term3 = J(n, ne)
 
-    # 注意：n**4 可能会很大，但在 float64 下通常没问题
     result = np.power(n, 4.0) / 32.0 * (
             np.power(term1, 2.0) +
             (1 - e * e) * np.power(term2, 2.0) +
@@ -140,51 +136,39 @@ _LISA_NOISE_DATA = None
 
 
 def _try_load_lisa_noise():
-    """
-    尝试从程序所在文件夹的上一级目录加载 LISA_noise_ASD.csv
-    如果成功，将数据存储在全局变量 _LISA_NOISE_DATA 中
-    改动：预计算 Log-Log 数据以加速插值，并计算低频延拓斜率
-    """
     global _LISA_NOISE_DATA
     try:
-        # 获取当前脚本所在目录的上一级目录
         current_dir = os.path.dirname(os.path.abspath(__file__))
         parent_dir = os.path.dirname(current_dir)
         file_path = os.path.join(parent_dir, 'LISA_noise_ASD.csv')
 
         if os.path.exists(file_path):
-            # 尝试读取
             try:
                 data = np.loadtxt(file_path, delimiter=',')
             except ValueError:
                 data = np.loadtxt(file_path, delimiter=',', skiprows=1)
 
-            # 按第一列（频率）排序
             sort_idx = np.argsort(data[:, 0])
             sorted_data = data[sort_idx]
 
-            # 提取频率和ASD
             f_data = sorted_data[:, 0]
             asd_data = sorted_data[:, 1]
 
-            # [关键修改] 预计算 Log10 数据，用于 Log-Log 插值
-            # 加上极小值防止 log(0) 报错（虽然物理上 f 和 asd 应该都 > 0）
             log_f = np.log10(f_data + 1e-30)
             log_asd = np.log10(asd_data + 1e-30)
 
-            # [关键修改] 计算低频端的斜率 (Slope)，用于 Power-law 延拓
-            # 使用最左边两个点来确定延拓趋势： slope = (y2-y1)/(x2-x1)
+            # Power-law exptrapolate
             # y = log(ASD), x = log(f)
             low_f_slope = (log_asd[1] - log_asd[0]) / (log_f[1] - log_f[0])
 
             _LISA_NOISE_DATA = {
                 'f_min': f_data[0],
                 'f_max': f_data[-1],
-                'log_f': log_f,  # 存储 log(f)
-                'log_asd': log_asd,  # 存储 log(ASD)
-                'low_f_slope': low_f_slope,  # 低频斜率
-                'log_f_0': log_f[0],  # 第一个点的 log(f)
-                'log_asd_0': log_asd[0]  # 第一个点的 log(ASD)
+                'log_f': log_f,
+                'log_asd': log_asd,
+                'low_f_slope': low_f_slope,
+                'log_f_0': log_f[0],
+                'log_asd_0': log_asd[0]
             }
             #print(f"[Info] Successfully loaded LISA noise file: {file_path}")
         else:
@@ -194,7 +178,7 @@ def _try_load_lisa_noise():
         _LISA_NOISE_DATA = None
 
 
-# 初始化加载
+
 _try_load_lisa_noise()
 
 
@@ -211,7 +195,7 @@ S_gal_N2A5 = np.vectorize(_S_gal_N2A5_scalar)
 
 
 def _S_n_lisa_original(f):
-    """原有程序的 Snf 计算方法（作为 fallback）"""
+    """original N2A5 Snf fallback"""
     m1 = 5.0e9
     m2 = sciconsts.c * 0.41 / m1 / 2.0
     return 20.0 / 3.0 * (1 + np.power(f / m2, 2.0)) * (4.0 * (
@@ -222,21 +206,14 @@ def _S_n_lisa_original(f):
 
 def S_n_lisa(f):
     """
-    修改后的 Snf 计算方法 (向量化 + Log-Log 插值 + 智能延拓)：
-    1. 输入 f 转换为 log10(f)
-    2. 在 Log-Log 空间进行线性插值 (对应物理空间的 Power-law 插值)
-    3. 低频 (f < f_min): 按 log-log 斜率直线延拓
-    4. 高频 (f > f_max): ASD 设为 1.0 (Snf = 1.0)
+    modified Snf calculation
     """
     if _LISA_NOISE_DATA is not None:
-        # 确保输入是数组，方便处理向量化逻辑
         f_arr = np.atleast_1d(f)
-        # 转换为 log10(f)，防止 f=0 报错加一个极小值（虽然物理上不应有0）
         log_f_in = np.log10(np.maximum(f_arr, 1e-30))
 
-        # 1. Log-Log 插值
-        # left=NaN: 暂时不处理低频，留给后面单独处理
-        # right=0.0: 对应 ASD=1.0 (log10(1)=0)，满足高频置1的需求
+        # left=NaN:
+        # right=0.0: ASD=1.0 (log10(1)=0)
         log_asd_out = np.interp(
             log_f_in,
             _LISA_NOISE_DATA['log_f'],
@@ -245,29 +222,25 @@ def S_n_lisa(f):
             right=0.0
         )
 
-        # 2. 低频 Power-law 延拓处理
-        # 找到超出左边界的索引
-        # 使用 np.isnan 来定位，因为上面 interp left 设置为了 NaN
         mask_low = np.isnan(log_asd_out)
 
         if np.any(mask_low):
-            # 公式: y = y0 + slope * (x - x0)
+            # y = y0 + slope * (x - x0)
             log_asd_out[mask_low] = _LISA_NOISE_DATA['log_asd_0'] + \
                                     _LISA_NOISE_DATA['low_f_slope'] * \
                                     (log_f_in[mask_low] - _LISA_NOISE_DATA['log_f_0'])
 
-        # 3. 还原回线性空间 ASD = 10^(log_asd)
+        # ASD = 10^(log_asd)
         asd_out = np.power(10.0, log_asd_out)
 
-        # 4. 计算 Sn(f) = ASD^2
+        # Sn(f) = ASD^2
         res = asd_out * asd_out
 
-        # 如果输入是标量，返回标量；如果是数组，返回数组
         if np.isscalar(f):
             return res[0]
         return res
     else:
-        # Fallback 到原程序方法
+        # Fallback
         return _S_n_lisa_original(f)
 
 def peters_factor_func(e):
@@ -277,7 +250,6 @@ def peters_factor_func(e):
     term3 = np.power(1.0 + (121.0 / 304.0) * e * e, 870.0 / 2299.0)
     return (term1 / term2) * term3
 def tmerger_integral_old(m1, m2, a0, e0):
-    # --- 你的原始参数定义保持不变 ---
     m1 = m1
     m2 = m2
     a0 = a0
@@ -309,14 +281,13 @@ def tmerger_integral_old(m1, m2, a0, e0):
     return t_merger
 class MergerTimeAccelerator:
     """
-    预计算 Peters (1964) 积分因子的插值表。
-    支持磁盘缓存：首次运行会计算并保存为 .npz 文件，之后直接读取。
+    Peters (1964) constant pre-computation table
+    save as .npz
     """
 
     def __init__(self, cache_file='merger_time_table.npz'):
         self.cache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), cache_file)
 
-        # 尝试加载缓存
         if self._load_cache():
             pass
             #print(f"[System] Loaded merger time table from {self.cache_file}")
@@ -325,20 +296,16 @@ class MergerTimeAccelerator:
             self._compute_and_save_table()
             print(f"[System] Table computed and saved to {self.cache_file}")
 
-        # 使用 Pchip 插值 (保单调性)
         self.interpolator = PchipInterpolator(self.e_grid, self.f_vals)
 
     def _compute_and_save_table(self):
-        # 使用对数分布采样 e，重点加密 e->1 的区域
-        # x 从 0 到 5, e = 1 - 10^-x
         x_vals = np.linspace(0, 5, 2000)
         self.e_grid = 1.0 - np.power(10, -x_vals)
-        self.e_grid[0] = 0.0  # 修正第一个点完全为0
+        self.e_grid[0] = 0.0
 
-        # 计算对应的无量纲因子 F(e)
+        # F(e)
         self.f_vals = np.array([self._compute_dimensionless_factor(e) for e in self.e_grid])
 
-        # 保存到磁盘
         np.savez(self.cache_file, e_grid=self.e_grid, f_vals=self.f_vals)
 
     def _load_cache(self):
@@ -354,7 +321,6 @@ class MergerTimeAccelerator:
             return False
 
     def _compute_dimensionless_factor(self, e0):
-        """核心积分逻辑 (与原代码一致，但只计算无量纲部分)"""
         if e0 < 1e-6: return 1.0
 
         term_c0 = np.power(e0, 12.0 / 19.0) * np.power(1 + 121.0 / 304.0 * e0 ** 2, 870.0 / 2299.0)
@@ -371,15 +337,14 @@ class MergerTimeAccelerator:
         return (48.0 / 19.0) * np.power(c0_norm, 4.0) * integral_val
 
     def get_factor(self, e):
-        # 处理边界和解析延拓
         if e < 1e-4: return 1.0
-        # 修正系数为 768/425
         if e > 0.99999:
             return (768.0 / 425.0) * np.power(1 - e ** 2, 3.5)
         return self.interpolator(e)
-# 初始化全局加速器实例
+
 _ACCELERATOR = MergerTimeAccelerator()
-# tmerger 函数保持不变，直接调用 _ACCELERATOR.get_factor
+
+# use _ACCELERATOR.get_factor
 def tmerger_integral(m1, m2, a0, e0):
     beta = 64.0 / 5.0 * m1 * m2 * (m1 + m2)
     if beta == 0: return 1e99
@@ -417,30 +382,25 @@ def solve_ae_after_time(m1, m2, a0, e0, dt):
     """
     current_life = GWtime(m1, m2, a0, e0)
 
-    # 1. 检查正向演化是否已经合并
     if dt > 0 and dt >= current_life:
         return 0.0, 0.0
 
     t_rem_target = current_life - dt
 
-    # 2. 核心守恒量 c0 求解 (正反向均适用)
+    # c0
     fact_e0 = peters_factor_func(e0)
     if fact_e0 == 0: return 0.0, 0.0  # Should not happen if e0 > 1e-10
 
     c0 = a0 / fact_e0
 
-    # 3. 动态设定搜索区间
     if dt > 0:
-        # 正向演化：e 减小
         e_lower, e_upper = 1e-6, e0
     elif dt < 0:
-        # 反向演化：e 增大 (历史上的轨道偏心率更高)
         e_lower, e_upper = e0, 1-1e-7
     else:
         # dt == 0
         return a0, e0
 
-    # 4. 求解目标 e_curr
     try:
         e_curr = brentq(lambda e: GWtime(m1, m2, c0 * peters_factor_func(e), e) - t_rem_target,
                         e_lower, e_upper, xtol=1e-12, maxiter=50)
@@ -448,7 +408,6 @@ def solve_ae_after_time(m1, m2, a0, e0, dt):
         print(f"[Warning] solve_ae failed for dt={dt}: {e}. Returning initial values.")
         e_curr = e0
 
-    # 5. 根据 e_curr 和 c0 还原 a_curr
     a_curr = c0 * peters_factor_func(e_curr)
     return a_curr, e_curr
 def dSNR2dt_numpy_old(m1, m2, a, e, Dl):
@@ -465,26 +424,18 @@ def dSNR2dt_numpy_old(m1, m2, a, e, Dl):
         h = np.sqrt(32. / 5.) * m1 * m2 / Dl / a
         deltaf = (fmax - fmin) / fnumber
 
-        # 1. 生成频率数组
         f_arr = np.linspace(fmin, fmax, fnumber)
 
-        # 2. 计算对应的 n_avg
         rate = f_arr / f0
-        n_avg = rate.astype(int)  # 向下取整
+        n_avg = rate.astype(int)
 
-        # 3. 筛选有效点 (n_avg > 0)
         mask = n_avg > 0
         f_valid = f_arr[mask]
         n_valid = n_avg[mask]
 
-        # 4. 向量化计算 g 和 Sn
-        # 这一步会自动并行调用 Bessel 函数，非常快
         g_vals = g(n_valid, e)
         Sn_vals = S_n_lisa(f_valid)
 
-        # 5. 积分累加
-        # 避免除以0 (Sn_vals 可能有极小值，但 S_n_lisa_vec 只有 >1e-5 才有效)
-        # 我们可以再加一层 mask 确保 Sn > 0
         valid_sn_mask = Sn_vals > 0
 
         term = g_vals[valid_sn_mask] / np.square(f_valid[valid_sn_mask]) / Sn_vals[valid_sn_mask]
@@ -498,12 +449,10 @@ def dSNR2dt_numpy_old(m1, m2, a, e, Dl):
         nmin = int(fmin / f0) + 1
         nmax = int(fmax / f0) + 2
 
-        # 1. 生成 n 数组
         n_arr = np.arange(nmin, nmax)
         if len(n_arr) == 0:
             return 0.0
 
-        # 2. 计算 fn, hn
         fn_arr = n_arr * forb(m1 + m2, a)
 
         val_h0 = h0(a, m1, m2, Dl)
@@ -512,10 +461,8 @@ def dSNR2dt_numpy_old(m1, m2, a, e, Dl):
         hn_arr = 2.0 / n_arr * np.sqrt(g_vals) * val_h0
         hnc2_arr = 4.0 * np.square(fn_arr) * np.square(hn_arr) / (2 * n_arr)
 
-        # 3. 计算 Sn
         Sn_vals = S_n_lisa(fn_arr)
 
-        # 4. 累加
         mask_sn = Sn_vals > 0
         # result = sum( hnc2 / fn^2 / Sn * n )
         terms = hnc2_arr[mask_sn] / np.square(fn_arr[mask_sn]) / Sn_vals[mask_sn] * n_arr[mask_sn]
@@ -566,14 +513,6 @@ def _get_sn_val_jit(f, use_file, log_f_grid, log_asd_grid, low_f_slope, log_f_0,
         return asd * asd
 @njit(fastmath=True, cache=True)
 def _dSNR_high_E_kernel(f_arr, n_vals, g_vals, delta_log_f, use_file, log_f, log_asd, slope, lf0, lasd0):
-    """
-    修改说明：
-    1. 参数 deltaf 变为 delta_log_f
-    2. 积分公式变更：
-       原积分: Integral[ g / (f^2 * Sn) * df ]
-       变量代换: df = f * d(ln f)
-       新积分: Integral[ g / (f^2 * Sn) * f * d(ln f) ] = Integral[ g / (f * Sn) * d(ln f) ]
-    """
     total = 0.0
     n_len = len(f_arr)
 
@@ -585,14 +524,12 @@ def _dSNR_high_E_kernel(f_arr, n_vals, g_vals, delta_log_f, use_file, log_f, log
 
             if sn > 0:
                 g = g_vals[i]
-                # 修改点：除数从 f*f 改为 f，因为 df = f * d(log_f)
                 term = g / (f * sn)
                 total += term
 
     return total * delta_log_f
 @njit(fastmath=True, cache=True)
 def _dSNR_low_E_kernel(n_arr, g_vals, forb_val, h0_val, use_file, log_f, log_asd, slope, lf0, lasd0):
-    # 低偏心率部分保持不变
     total = 0.0
     n_len = len(n_arr)
 
@@ -622,7 +559,6 @@ def dSNR2dt_numpy(m1, m2, a, e, Dl):
 
     f0 = 1. / 2. / pi * np.sqrt(m1 + m2) * np.power(a, -1.5)
 
-    # 阈值判断标准保持线性逻辑，或者根据需要调整
     threshold = (fmax - fmin) / fnumber
 
     # Prepare Noise Data for JIT
@@ -645,10 +581,8 @@ def dSNR2dt_numpy(m1, m2, a, e, Dl):
     if f0 * 10 < threshold:
         h = np.sqrt(32. / 5.) * m1 * m2 / Dl / a
 
-        # 修改 1: 使用 geomspace 生成对数均匀分布点
         f_arr = np.geomspace(fmin, fmax, fnumber)
 
-        # 修改 2: 计算对数步长 d(ln f)
         # d(ln f) = ln(fmax / fmin) / (N - 1)
         delta_log_f = np.log(fmax / fmin) / (fnumber - 1)
 
@@ -656,11 +590,9 @@ def dSNR2dt_numpy(m1, m2, a, e, Dl):
         n_vals = (f_arr / f0).astype(np.int64)
 
         # 3. Calculate g using SciPy
-        # 确保外部的 g 函数能处理 n_vals
         g_vals = g(n_vals, e)
 
         # 4. Kernel Summation (JIT)
-        # 传入 delta_log_f 而不是 deltaf
         raw_sum = _dSNR_high_E_kernel(
             f_arr, n_vals, g_vals, delta_log_f,
             use_file, log_f_g, log_asd_g, slope, lf0, lasd0
@@ -668,7 +600,7 @@ def dSNR2dt_numpy(m1, m2, a, e, Dl):
 
         return raw_sum * 8 * h * h * f0
 
-    # --- Low Eccentricity Mode (保持不变) ---
+    # --- Low Eccentricity Mode ---
     else:
         nmin = int(fmin / f0) + 1
         nmax = int(fmax / f0) + 2
@@ -829,7 +761,6 @@ def psi3pn_numba(e, u, eta):
 
     prefactor = 1.0 / (13440.0 * (1 - e2) ** 2.5 * (e * cos_u - 1) ** 7)
 
-    # 为了避免代码过长导致的可读性问题，这里保持这种结构，但确保变量是本地的
     term_poly = (
             ((10080 * eta ** 3 + 40320 * eta ** 2 - 15120 * eta) * e ** 10 +
              (-52640 * eta ** 3 - 13440 * eta ** 2 + 483280 * eta) * e ** 8 +
@@ -885,12 +816,12 @@ def psi3pn_numba(e, u, eta):
     return prefactor * term_poly
 @njit(fastmath=True, cache=True)
 def get_residual_and_deriv(u, l, e, x, ephi, smr, PN_orbit):
-    """ 计算开普勒方程残差及导数 (增加数值保护) """
+    """ solve Kepler eqs """
     pi_val = np.pi
     sinu = np.sin(u)
     cosu = np.cos(u)
 
-    # [保护1] 防止 e*cosu 极度接近 1 导致导数为 0
+    # in case e*cosu --> 1
     one_minus_ecosu = 1.0 - e * cosu
     if one_minus_ecosu < 1e-12:
         one_minus_ecosu = 1e-12
@@ -898,12 +829,12 @@ def get_residual_and_deriv(u, l, e, x, ephi, smr, PN_orbit):
     sqrt_1_e2 = np.sqrt(1 - e ** 2)
 
     val = -l + u - e * sinu
-    deriv = one_minus_ecosu  # 这是 0PN 导数
+    deriv = one_minus_ecosu  # 0PN
 
     if PN_orbit >= 2:
-        # [保护2] 防止 ephi 接近 0 导致除零 (ephi=0 时 betaphi -> 0)
+        # in case ephi --> 0
         if np.abs(ephi) < 1e-10:
-            betaphi = 0.5 * ephi  # 泰勒展开近似
+            betaphi = 0.5 * ephi
         else:
             betaphi = (1 - np.sqrt(1 - ephi ** 2)) / ephi
 
@@ -939,7 +870,6 @@ def get_residual_and_deriv(u, l, e, x, ephi, smr, PN_orbit):
     return val, deriv
 @njit(fastmath=True, cache=True)
 def solve_u_series_robust(l_vec, e_vec, x_vec, ephi_vec, smr, PN_orbit):
-    """ 加速求解 u(t)，包含步长限制和除零保护 """
     n = len(l_vec)
     u_vec = np.empty(n, dtype=np.float64)
     u_vec[0] = l_vec[0]  # Fallback initial
@@ -950,17 +880,15 @@ def solve_u_series_robust(l_vec, e_vec, x_vec, ephi_vec, smr, PN_orbit):
         x = x_vec[i]
         ephi = ephi_vec[i]
 
-        # 初始猜测 (Bracket Search)
+        # (Bracket Search)
         if i == 0:
             low = l - 1.5
             high = l + 1.5
         else:
-            # 线性预测
             pred = u_vec[i - 1] + (l - l_vec[i - 1])
             low = pred - 1.0
             high = pred + 1.0
 
-        # 快速定位区间
         for _ in range(20):
             fl, _ = get_residual_and_deriv(low, l, e, x, ephi, smr, PN_orbit)
             if fl < 0: break
@@ -980,9 +908,7 @@ def solve_u_series_robust(l_vec, e_vec, x_vec, ephi_vec, smr, PN_orbit):
 
             if np.abs(f_val) < 1e-12: break
 
-            # [关键修复] 严格的除零保护，不用 == 0
             if np.abs(df_du) < 1e-15:
-                # 保持符号
                 if df_du < 0:
                     df_du = -1e-15
                 else:
@@ -990,23 +916,22 @@ def solve_u_series_robust(l_vec, e_vec, x_vec, ephi_vec, smr, PN_orbit):
 
             step = f_val / df_du
 
-            # [关键修复] 步长限制 (Damped Newton)，防止飞出太远
-            # 如果导数估计很差（因为没包含 PN 项），全步长会导致震荡或发散
+            # (Damped Newton)
             if step > 1.5: step = 1.5
             if step < -1.5: step = -1.5
 
             u_new = u_cur - step
 
-            # Bisection Fallback (如果牛顿法跳出了区间)
+            # Bisection Fallback
             if not (low < u_new < high):
                 u_new = 0.5 * (low + high)
-                step = u_cur - u_new  # 更新 effective step 用于判断收敛
+                step = u_cur - u_new
 
             u_cur = u_new
 
-            # 更新区间
+
             f_new, _ = get_residual_and_deriv(u_cur, l, e, x, ephi, smr, PN_orbit)
-            if f_new * fl > 0:  # 同号，移动下界
+            if f_new * fl > 0:
                 low = u_cur
                 fl = f_new
             else:
@@ -1019,8 +944,8 @@ def solve_u_series_robust(l_vec, e_vec, x_vec, ephi_vec, smr, PN_orbit):
 @njit(cache=True)#fastmath=True,
 def compute_h_arrays_full(evec, uvec, xvec, phi, M, smr, R, theta, dt, PN_orbit):
     """
-    全链路 Numba 加速：计算 r, dpsi, psi, h+, hx
-    * 加入 Kahan Summation 算法以保护长时积分的相位精度
+    compute r, dpsi, psi, h+, hx
+    Kahan Summation
     """
     n = len(evec)
     rvec = np.empty(n, dtype=np.float64)
@@ -1035,7 +960,7 @@ def compute_h_arrays_full(evec, uvec, xvec, phi, M, smr, R, theta, dt, PN_orbit)
     cos2_plus_1 = cos_theta * cos_theta + 1.0
     amp_fac = -M * smr / R
 
-    # 1. 物理量计算 Loop (r, dpsi/dt)
+    # 1. (r, dpsi/dt)
     for i in range(n):
         e = evec[i]
         u = uvec[i]
@@ -1070,15 +995,12 @@ def compute_h_arrays_full(evec, uvec, xvec, phi, M, smr, R, theta, dt, PN_orbit)
         rvec[i] = r * M
         dpsi_dt_vec[i] = dp / M
 
-    # 2. 积分计算 Psi (使用 Kahan Summation 保护精度)
-    # 普通累加: sum += val
-    # Kahan累加: 引入补偿变量 c，记录低位丢失的信息
+    # 2. Psi (Kahan Summation)
     current_psi = 0.0
-    psi_compensation = 0.0  # 补偿变量
+    psi_compensation = 0.0
     psiresult[0] = 0.0
 
     for i in range(1, n):
-        # 梯形法则增量
         delta_psi = 0.5 * (dpsi_dt_vec[i - 1] + dpsi_dt_vec[i]) * dt
 
         # Kahan Summation Core Logic
@@ -1089,7 +1011,7 @@ def compute_h_arrays_full(evec, uvec, xvec, phi, M, smr, R, theta, dt, PN_orbit)
 
         psiresult[i] = current_psi
 
-    # 3. 波形 Strain 计算
+    # 3. Strain
     for i in range(n):
         if i == 0:
             rd = (rvec[1] - rvec[0]) / dt
@@ -1101,10 +1023,6 @@ def compute_h_arrays_full(evec, uvec, xvec, phi, M, smr, R, theta, dt, PN_orbit)
         r = rvec[i]
         psid = dpsi_dt_vec[i]
 
-        # 注意：这里我们计算 cos(2*psi)，如果 psi 极其巨大 (e.g. > 1e16)，
-        # float64 依然会丢失 modulo 2pi 的精度。
-        # 但对于 LISA/LIGO 应用，psi 通常在 1e6 ~ 1e9 量级，
-        # Kahan Summation 已经足以保证 delta_psi 不被大数吞没。
         psit = psiresult[i] - phi
 
         cos2p = np.cos(2 * psit)
@@ -1124,14 +1042,14 @@ def compute_h_arrays_full(evec, uvec, xvec, phi, M, smr, R, theta, dt, PN_orbit)
     return rvec, dpsi_dt_vec, psiresult, hplusv, hcrossv
 def eccGW_waveform0(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN_orbit=3, PN_reaction=2,
                     N=50, max_memory_GB=16.0, verbose=True):
-    # 如果 verbose 为 True，vprint 就是 print；否则 vprint 是一个什么都不做的空函数
+
     vprint = print if verbose else lambda *args, **kwargs: None
 
     m1=m1
     m2=m2
     R=R
     timescale=timescale
-    # === [新增保护逻辑] 零偏心率自动修正 ===
+    # === protect e=0 (code cannot deal with e=0) ===
     if e0 == 0:
         print("Warning: e0=0 is not supported by this eccentric template (singularities in PN terms).")
         print("         Automatically resetting e0 to 1e-5 to maintain stability.")
@@ -1140,23 +1058,21 @@ def eccGW_waveform0(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN
     # ========================================
     vprint('================Ecc Inspiral GW waveform================')
     # =================================================================
-    # 1. 内部辅助函数定义
+    # 1.
     # =================================================================
     def J(n, x):
         return scipy.special.jv(n, x)
     def Jtilt(n, x):
         return 0.5 * (J(n - 1, x) - J(n + 1, x))
     #print(f"Loading 1.5PN Tail enhancement table (e0={e0:.6f})...")
-    # --- 缓存与预计算逻辑 ---
+
     dist_to_1 = 1.0 - e0
     if dist_to_1 < 0: dist_to_1 = 0
     margin = min(0.0001, dist_to_1 * 0.05)
     required_safe_e0 = e0 + margin
     limit_e = 0.99999
     if required_safe_e0 > limit_e: required_safe_e0 = limit_e
-    # [FIX] 使用 os.path.dirname(__file__) 锁定当前脚本目录
-    # 这样无论你在哪里运行脚本，它都会在脚本所在的目录下寻找/创建 .npz 文件
-    # 如果是交互式环境(无 __file__)，则回退到 getcwd
+
     try:
         current_script_dir = os.path.dirname(os.path.abspath(__file__))
     except NameError:
@@ -1278,7 +1194,6 @@ def eccGW_waveform0(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN
         if e < 1e-4: return 1.0
         return kappaJ_interp(e)
 
-    # --- 物理演化方程 ---
     def E2PN(e):
         return -e * smr / (30240 * np.power(1 - e * e, 9 / 2)) * (
                 (2758560 * smr * smr - 4344852 * smr + 3786543) * np.power(e, 6.0) + (
@@ -1403,7 +1318,7 @@ def eccGW_waveform0(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN
         return 6 * np.power(2 * pi, 2 / 3) / (1 - e * e) * np.power(M, 2 / 3) * np.power(Porb, -5 / 3)
 
     # =================================================================
-    # 2. 初始化与预检查
+    # 2.
     # =================================================================
     M = m1 + m2
     smr = m1 * m2 / M / M
@@ -1418,7 +1333,7 @@ def eccGW_waveform0(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN
 
 
 
-    # [CHECK 1] 初始近星点保护
+
     rp_check = (1.0 - e0) / x0
     if rp_check < 6.0:
         raise ValueError(f"ERROR: Initial Condition Unstable! rp = {rp_check:.2f} M (< 6M, inside ISCO).")
@@ -1429,7 +1344,7 @@ def eccGW_waveform0(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN
     if rtol0 < 1e-13: rtol0 = 1e-13
 
     # =================================================================
-    # 3. 演化求解 (关键：必须注意依赖顺序)
+    # 3.
     # =================================================================
 
     # (A) Map x(e)
@@ -1437,21 +1352,19 @@ def eccGW_waveform0(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN
     e_temp = 1 - np.power(10., logonee)
 
     # ------------------ WARNING SUPPRESSION BLOCK START ------------------
-    # 使用 warnings.catch_warnings 屏蔽 dx_de 积分时的 ODEintWarning
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=scipy.integrate.ODEintWarning)
         warnings.simplefilter("ignore", category=RuntimeWarning)
 
-        # 积分得到 x(e)
         xe = sci_integrate.odeint(dx_de, x0, e_temp, rtol=rtol0, atol=0).T[0]
 
-        # [Merger Check 1]: 在 x(e) 映射阶段检查 ISCO
+        # [Merger Check 1]
         x_isco = 1.0 / 6.0
-        # 找到所有符合物理条件的索引 (x < x_isco)
+
         valid_mask = xe < x_isco
-        # 如果有任何点超出了 ISCO，我们需要截断
+
         if np.sum(~valid_mask) > 0:
-            # 找到第一个非法的索引
+
             idx_merger_xe = np.argmax(~valid_mask)
             if idx_merger_xe > 1:
                 #print(
@@ -1462,47 +1375,38 @@ def eccGW_waveform0(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN
                 print("Error: Initial conditions are already past ISCO.")
                 return [np.array([]), np.array([]), np.array([]), 0, [], np.array([])]
 
-        # 建立插值函数
+
         xe1 = sci_interpolate.interp1d(e_temp, xe, fill_value="extrapolate")
 
         # 2. Slow Evolution: e(t)
-        # 这里我们还是让它跑到 timescale，但会在后面做截断
         t_temp = np.linspace(0, timescale, num=t_accuracy)
         eresult = sci_integrate.odeint(de_dt, e0, t_temp, rtol=rtol0, atol=0).T[0]
 
-        # 建立 e(t) 插值以便后续计算 x(t) 和 l(t)
         e_t = sci_interpolate.interp1d(t_temp, eresult, fill_value="extrapolate")
 
         # 3. Slow Evolution: x(t)
         xresult = sci_integrate.odeint(dx_dt, x0, t_temp, rtol=rtol0, atol=0).T[0]
 
-        # [Merger Check 2]: 在时间演化结果中检查截断
-        # 查找 x >= x_isco 或者 e 停止演化（导数为0）的地方
-        # 由于 de_dt 在 merger 时返回 0，eresult 会在某处变成常数，但 xresult 可能会有些微漂移
-        # 最稳健的方法是直接检查 xresult 是否越界
+        # [Merger Check 2]
         merger_indices = np.where(xresult >= x_isco)[0]
 
-        cutoff_index = len(t_temp)  # 默认不截断
+        cutoff_index = len(t_temp)
 
         if len(merger_indices) > 0:
             cutoff_index = merger_indices[0]
             print(
                 f"!!! MERGER REACHED !!! Truncating waveform at ISCO: t = {t_temp[cutoff_index]} s (x={xresult[cutoff_index]})")
 
-        # 执行截断
         if cutoff_index < len(t_temp):
             t_temp = t_temp[:cutoff_index]
             eresult = eresult[:cutoff_index]
             xresult = xresult[:cutoff_index]
-            # 更新 timescale，防止后面生成多余的 0 数据
             timescale = t_temp[-1]
 
-        # 重新建立插值，因为 xresult 被截断了
         x_t = sci_interpolate.interp1d(t_temp, xresult, fill_value="extrapolate")
         e_t = sci_interpolate.interp1d(t_temp, eresult, fill_value="extrapolate")  # 更新 e_t 保证一致
 
         # 4. Slow Evolution: l(t)
-        # 使用截断后的 t_temp 进行积分，节省时间
         lresult = sci_integrate.odeint(dl_dt, l0, t_temp, rtol=min(rtol0, 1e-8)).T[0]
 
     # ------------------ WARNING SUPPRESSION BLOCK END ------------------
@@ -1515,7 +1419,7 @@ def eccGW_waveform0(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN
     flast = 1 / 2 / pi / M * np.power(xlast, 3 / 2)
     vprint(f'Evolution: {timescale / years} yr. f_initial: {f0} [Hz], f_final: {flast} [Hz]')
     # =================================================================
-    # 4. 波形生成与采样
+    # 4.
     # =================================================================
     if ts is None:
         controlnum2 = int(N * timescale * flast * np.power(1 - eresult[-1], -3 / 2)) + 1000
@@ -1562,14 +1466,12 @@ def eccGW_waveform0(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN
 
 def eccGW_waveform(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN_orbit=3, PN_reaction=2,
                     N=50, max_memory_GB=16.0, verbose=True):
-    # 如果 verbose 为 True，vprint 就是 print；否则 vprint 是一个什么都不做的空函数
     vprint = print if verbose else lambda *args, **kwargs: None
     #print('!!!!')
     m1=m1
     m2=m2
     R=R
     timescale=timescale
-    # === [新增保护逻辑] 零偏心率自动修正 ===
     if e0 == 0:
         print("Warning: e0=0 is not supported by this eccentric template (singularities in PN terms).")
         print("         Automatically resetting e0 to 1e-5 to maintain stability.")
@@ -1578,23 +1480,21 @@ def eccGW_waveform(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN_
     # ========================================
     vprint('================Ecc Inspiral GW waveform================')
     # =================================================================
-    # 1. 内部辅助函数定义
+    # 1.
     # =================================================================
     def J(n, x):
         return scipy.special.jv(n, x)
     def Jtilt(n, x):
         return 0.5 * (J(n - 1, x) - J(n + 1, x))
     #print(f"Loading 1.5PN Tail enhancement table (e0={e0:.6f})...")
-    # --- 缓存与预计算逻辑 ---
+
     dist_to_1 = 1.0 - e0
     if dist_to_1 < 0: dist_to_1 = 0
     margin = min(0.0001, dist_to_1 * 0.05)
     required_safe_e0 = e0 + margin
     limit_e = 0.99999
     if required_safe_e0 > limit_e: required_safe_e0 = limit_e
-    # [FIX] 使用 os.path.dirname(__file__) 锁定当前脚本目录
-    # 这样无论你在哪里运行脚本，它都会在脚本所在的目录下寻找/创建 .npz 文件
-    # 如果是交互式环境(无 __file__)，则回退到 getcwd
+
     try:
         current_script_dir = os.path.dirname(os.path.abspath(__file__))
     except NameError:
@@ -1716,7 +1616,7 @@ def eccGW_waveform(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN_
         if e < 1e-4: return 1.0
         return kappaJ_interp(e)
 
-    # --- 物理演化方程 ---
+
     def E2PN(e):
         return -e * smr / (30240 * np.power(1 - e * e, 9 / 2)) * (
                 (2758560 * smr * smr - 4344852 * smr + 3786543) * np.power(e, 6.0) + (
@@ -1739,21 +1639,17 @@ def eccGW_waveform(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN_
         e_phi_3PN = -et * (term1_3 + term2_3 - 17220 * smr * np.pi ** 2 - 1747200) / denominator
         return et + e_phi_1PN * x + e_phi_2PN * x ** 2 + e_phi_3PN * x ** 3
 
-        # ==========================
-        # [UPDATED] 无保护导数函数
-        # ==========================
-        # === 关键修改：耦合导数函数 ===
+
     def coupled_derivs(y, t):
             # y[0] = x, y[1] = e
             x = y[0]
             e = y[1]
 
-            # 1. 基础物理保护
+            # 1. protect
             if x < 0: x = 1e-8
-            # 不锁死 x > 1/6，允许积分器冲过去，我们在后处理截断
 
-            # 防止 e 越界 (e不能小于0，不能大于1)
-            if e < 0: e = 0.0  # 偏心率不能为负
+            # prtect e
+            if e < 0: e = 0.0
             if e >= 1.0: e = 0.99999
 
             one_minus_e2 = 1.0 - e * e
@@ -1786,8 +1682,6 @@ def eccGW_waveform(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN_
             dx_dt_val = xdot / M
 
             # --- de/dt Calculation ---
-            # 如果 e 已经非常小 (e.g. < 1e-7)，辐射反作用会使其进一步减小，但也可能因数值误差震荡
-            # 这里允许它自然演化，但如果 e=0，则 de/dt 必须为 0
             if e <= 1e-9:
                 edot_val = 0.0
             else:
@@ -1811,7 +1705,6 @@ def eccGW_waveform(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN_
             return [dx_dt_val, edot_val]
 
     def dl_dt(l, t, x, e):
-            # 这里的 dl_dt 需要传入当前的 x 和 e，而不是依赖插值
             result = (np.power(x, 3 / 2))
             if PN_orbit >= 1: result += np.power(x, 5 / 2) * 3 / (e * e - 1)
             if PN_orbit >= 2: result += np.power(x, 7 / 2) * ((26 * smr - 51) * e * e + 28 * smr - 18) / (
@@ -1827,7 +1720,7 @@ def eccGW_waveform(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN_
         return 6 * np.power(2 * pi, 2 / 3) / (1 - e * e) * np.power(M, 2 / 3) * np.power(Porb, -5 / 3)
 
     # =================================================================
-    # 2. 初始化与预检查
+    # 2.
     # =================================================================
     M = m1 + m2
     smr = m1 * m2 / M / M
@@ -1842,35 +1735,29 @@ def eccGW_waveform(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN_
 
 
 
-    # [CHECK 1] 初始近星点保护
+    # [CHECK 1]
     rp_check = (1.0 - e0) / x0
     if rp_check < 6.0:
         raise ValueError(f"ERROR: Initial Condition Unstable! rp = {rp_check:.2f} M (< 6M, inside ISCO).")
         #return [np.array([0.0]), np.array([0.0]), np.array([0.0]), 0, [], np.array([0.0])]
     if True:
-        # 设定时间网格
-        # 注意：如果 merger 发生很快，我们需要足够的时间分辨率。如果很慢，odeint 会自适应。
         t_accuracy = int(timescale * f0 * 2) + 5000
         t_temp = np.linspace(0, timescale, num=t_accuracy)
 
-        # 初始状态向量
         y0 = [x0, e0]
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
 
-            # === 执行耦合积分 ===
-            # 这里不再涉及 x(e) 映射，直接算 x(t) 和 e(t)
-            # 允许积分器即使在 stiffness 很高时也尝试求解 (lsoda 是 odeint 的底层算法，适合刚性/非刚性自动切换)
             sol = sci_integrate.odeint(coupled_derivs, y0, t_temp, rtol=1e-12, atol=1e-14)
 
             xresult = sol[:, 0]
             eresult = sol[:, 1]
 
-            # === 截断逻辑 (Merger Handling) ===
+            # === (Merger Handling) ===
             x_isco = 1.0 / 6.0
 
-            # 寻找 merger 点：x >= ISCO 或者 x 变成 NaN
+            # find merger point: x >= ISCO or x --> NaN
             bad_mask = (xresult >= x_isco) | np.isnan(xresult) | np.isinf(xresult)
             bad_indices = np.where(bad_mask)[0]
 
@@ -1880,8 +1767,8 @@ def eccGW_waveform(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN_
                     f"   Merger detected at t={t_temp[cutoff_index]}s (x={xresult[cutoff_index]}). Truncating.")
             else:
                 cutoff_index = len(t_temp)
-                # 检查是否因为 timescale 太短没跑到 merger
-                if xresult[-1] < 0.1:  # 0.1 远小于 1/6
+                # check timescale
+                if xresult[-1] < 0.1:
                     vprint(
                         f"   Simulation finished without merger (final x={xresult[-1]}).")
 
@@ -1889,31 +1776,25 @@ def eccGW_waveform(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN_
                 print("Error: Waveform truncated immediately.")
                 return [np.array([]), np.array([]), np.array([]), 0, [], np.array([])]
 
-            # 截断数组
             t_temp = t_temp[:cutoff_index]
             xresult = xresult[:cutoff_index]
             eresult = eresult[:cutoff_index]
 
-            # 修正 e < 0 的微小数值噪音
+            # fix e < 0
             eresult[eresult < 0] = 0.0
 
-            # === 计算 l(t) ===
-            # 由于 dl/dt 依赖 x 和 e，我们可以直接用现有的 xresult, eresult 算导数然后积分
-            # 这里用累积梯形积分比 odeint 更快且足够准，因为 x, e 已经有了
+            # === l(t) ===
             dl_vals = np.zeros_like(xresult)
             for i in range(len(xresult)):
-                dl_vals[i] = dl_dt(0, 0, xresult[i], eresult[i])  # l, t 参数没用到
+                dl_vals[i] = dl_dt(0, 0, xresult[i], eresult[i])
 
-            # 积分 l(t)
             lresult = sci_integrate.cumtrapz(dl_vals, t_temp, initial=0) + l0
 
         if len(t_temp) == 0:
             return [np.array([]), np.array([]), np.array([]), 0, [], np.array([])]
 
-        # 更新 timescale 和插值函数
         timescale = t_temp[-1]
 
-        # 因为已经有密集点，直接构建插值
         x_t = sci_interpolate.interp1d(t_temp, xresult, fill_value="extrapolate")
         e_t = sci_interpolate.interp1d(t_temp, eresult, fill_value="extrapolate")
         l_t = sci_interpolate.interp1d(t_temp, lresult, fill_value="extrapolate")
@@ -1921,7 +1802,7 @@ def eccGW_waveform(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN_
         flast = 1 / 2 / pi / M * np.power(xresult[-1], 3 / 2)
         vprint(f'Evolution: {timescale / (365 * 24 * 3600)} yr. f_initial: {f0}, f_final: {flast}')
     # =================================================================
-    # 4. 波形生成与采样
+    # 4.
     # =================================================================
     if ts is None:
         controlnum2 = int(N * timescale * flast * np.power(1 - eresult[-1], -3 / 2)) + 1000
@@ -1969,22 +1850,18 @@ def eccGW_waveform(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN_
 def core_lisa_response_loop(t_arr, hplus, hcross, theta, phi, psi,
                                   fm, kappa, lamb, a, t0, ndot0):
     """
-    修正后的核心循环，旨在严格匹配 'LISA_detectorresponse' (MED) 的逻辑。
-
-    MED 逻辑:
+    LISA RESPONSE FUNCTION
       timelistnew = t + ndotx1(t)
       timelistnew -= t0
       timelistnew -= ndotx1(0)
       result = np.interp(timeline, timelistnew, signal)
 
-    Numba 实现:
-      time_new[i] = t + ndot - t0 - ndot0
+      (time_new[i] = t + ndot - t0 - ndot0)
     """
     n = len(t_arr)
     signal_static = np.empty(n, dtype=np.float64)
     time_new = np.empty(n, dtype=np.float64)
 
-    # 预计算三角函数
     sin_theta = np.sin(theta);
     cos_theta = np.cos(theta)
     sin_2theta = np.sin(2 * theta);
@@ -2000,15 +1877,13 @@ def core_lisa_response_loop(t_arr, hplus, hcross, theta, phi, psi,
         t = t_arr[i]
         alp = 2 * pi_val * fm * t + kappa
 
-        # 1. 计算 ndotx1 (Roemer delay)
-        # 对应 MED: ndotx1(t)
+        # 1. ndotx1 (Roemer delay)
         ndot_t = a * sin_theta * np.cos(alp - phi)
 
-        # 2. 构建插值用的 X 轴 (严格匹配 MED)
-        # 对应 MED: t + ndotx1(t) - t0 - ndotx1(0)
+        # 2. t + ndotx1(t) - t0 - ndotx1(0)
         time_new[i] = t + ndot_t - t0 - ndot0
 
-        # 3. 计算 Dplus (保持不变)
+        # 3. Dplus
         arg_2lamb = 2 * lamb
         arg_2alp_2lamb = 2 * alp - 2 * lamb
         arg_4alp_2lamb = 4 * alp - 2 * lamb
@@ -2025,7 +1900,7 @@ def core_lisa_response_loop(t_arr, hplus, hcross, theta, phi, psi,
 
         Dp = (sqrt3 / 64.0) * (term1 + term2 + term3)
 
-        # 4. 计算 Dcross (保持不变)
+        # 4. Dcross
         arg_2l_2p = 2 * lamb - 2 * phi
         arg_4a_2l_2p = 4 * alp - 2 * lamb - 2 * phi
         sub_term1_c = 9 * np.cos(arg_2l_2p) - np.cos(arg_4a_2l_2p)
@@ -2036,7 +1911,7 @@ def core_lisa_response_loop(t_arr, hplus, hcross, theta, phi, psi,
 
         Dc = (1.0 / 16.0) * (term1_c + term2_c)
 
-        # 5. 合成 Fplus, Fcross (保持不变)
+        # 5. Fplus, Fcross
         Fp = 0.5 * (cos_2psi * Dp - sin_2psi * Dc)
         Fc = 0.5 * (sin_2psi * Dp + cos_2psi * Dc)
 
@@ -2048,37 +1923,46 @@ def compute_LISA_response(t_src, hplus, hcross,
                           kappa=0.0, lamb=0.0,
                           mode='interp'):
     """
-    计算外部波形的 LISA 响应，支持两种输出模式。
+    Compute the LISA response of an external waveform, supporting two output modes.
 
     Args:
-        t_src (array): 波源输入时间轴 (通常是均匀的)。
-        hplus, hcross (array): 波源处的极化分量。
-        theta, phi, psi (float): 几何角度 (rad)。
-        t0 (float): 到达时间偏移 (s)。
-        kappa, lamb (float): 初始轨道/相位参数。
-        mode (str): 输出模式开关
-            - 'interp' (默认): 输出时间轴与输入 t_src 完全一致。
-                               会自动进行重采样，并在信号未覆盖区域补 0。
-            - 'raw': 输出真实的探测器到达时间轴 (非均匀，受多普勒影响)。
-                     不进行插值，保留最原始物理信息。
+        t_src (array): Source-frame input time array (typically uniform).
+
+        hplus, hcross (array): Polarization components at the source.
+
+        theta, phi, psi (float): Geometric angles (rad).
+
+        t0 (float): Arrival time offset (s).
+
+        kappa, lamb (float): Initial orbital/phase parameters.
+
+        mode (str): Output mode selector
+
+            - 'interp' (default): The output time array exactly matches the input
+                                  `t_src`. Resampling is performed automatically,
+                                  and uncovered regions are zero-padded.
+
+            - 'raw': Returns the true detector arrival time array
+                     (non-uniform due to Doppler effects).
+                     No interpolation is applied, preserving the
+                     most original physical information.
 
     Returns:
-        t_out (array): 输出时间轴 (取决于 mode)。
-        h_out (array): 输出 Strain。
+        t_out (array): Output time array (depends on `mode`).
+
+        h_out (array): Output strain.
     """
-    # 1. 定义常量
+
     years = 365 * 24 * 3600.0
     ecc_lisa = 0.00965
     L = 5e9 / sciconsts.c
     a = L / ecc_lisa / (2 * np.sqrt(3))
     fm = 1 / years
 
-    # 2. 计算初始对齐延迟 (t=0时刻的几何延迟)
-    # 这一步确保了当 t_src=0 时，扣除 t0 后，物理上的相对延迟归零
+    # 2. initial delay time at t=0
     ndot0 = a * np.sin(theta) * np.cos(kappa - phi)
 
-    # 3. 调用内核计算物理到达时间
-    # t_physical 是这一串信号真实到达探测器的时间点 (非均匀)
+    # 3. physical arrival time
     t_physical, h_modulated = core_lisa_response_loop(
         np.ascontiguousarray(t_src, dtype=np.float64),
         np.ascontiguousarray(hplus, dtype=np.float64),
@@ -2087,18 +1971,21 @@ def compute_LISA_response(t_src, hplus, hcross,
         float(fm), float(kappa), float(lamb), float(a), float(t0), float(ndot0)
     )
 
-    # 4. 根据模式处理输出
+    # 4. Process the output according to the selected mode
     if mode == 'raw':
-        # --- 模式二：输出非均匀物理时间 ---
-        # 这里的 t_physical 包含了多普勒效应导致的网格变形
+        # --- Mode 2: Return the non-uniform physical time array ---
+        # Here, `t_physical` includes the grid deformation caused by Doppler effects
         return [t_physical, h_modulated]
 
     elif mode == 'interp':
-        # --- 模式一：重采样回原始网格 ---
-        # 我们希望知道：在 t_src 定义的那些时刻，探测器读数是多少？
-        # 这是一个插值问题：已知 (t_physical, h_modulated)，求 f(t_src)
+        # --- Mode 1: Resample back onto the original grid ---
+        # We want to know: what is the detector response at the times
+        # defined by `t_src`?
+        # This is an interpolation problem:
+        # given (t_physical, h_modulated), evaluate f(t_src)
 
-        # left=0.0, right=0.0 实现了“缺数据补0”的要求
+        # left=0.0, right=0.0 implements zero-padding outside
+        # the covered signal range
         h_resampled = np.interp(t_src, t_physical, h_modulated, left=0.0, right=0.0)
 
         return [t_src, h_resampled]
@@ -2108,11 +1995,8 @@ def compute_LISA_response(t_src, hplus, hcross,
 
 
 # -----------------------------------------------------------------------------
-# Numba 加速核心计算部分 (已修改为调用全局 S_n_lisa)
+# Numba acceleration
 # -----------------------------------------------------------------------------
-
-# [删除] get_lisa_noise_value (旧的硬编码逻辑，已弃用)
-# [删除] compute_sn_vector (旧的生成逻辑，已弃用)
 
 @njit(cache=True)
 def compute_integral_sum(h1left, h1right, h2left, h2right,
@@ -2121,52 +2005,49 @@ def compute_integral_sum(h1left, h1right, h2left, h2right,
                          snfleft, snfright,
                          xsl, xsr, phic, tobs):
     """
-    计算积分求和: 4 * Re[ h1 * conj(h2) / Sn ]/4，注意hf系数里有一个1/2h0因子最后和标准公式的4抵消了
-    保持 Numba 加速，因为这是纯数组运算
+    Compute the overlap integral:
+    4 * Re[ h1 * conj(h2) / Sn ] / 4.
+
+    Note that the Fourier-domain coefficient `hf` contains an additional
+    factor of 1/2 relative to h0, which cancels the standard prefactor of 4.
+
+    Numba acceleration is retained since this consists purely of array operations.
     """
     n = len(h1left)
     total_sum = 0.0
 
     for i in range(n):
-        # 计算被积函数的值 (梯形法则的左边点和右边点)
-        # 注意：这里 snfleft/right 是从外部传入的数组，不需要在 Numba 里计算
         term_left = 1.0 * h1left[i] * h2left[i] / snfleft[i] * np.cos(h1_angle_left[i] - (h2_angle_left[i] + phic))
         term_right = 1.0 * h1right[i] * h2right[i] / snfright[i] * np.cos(
             h1_angle_right[i] - (h2_angle_right[i] + phic))
 
         dx = xsr[i] - xsl[i]
 
-        # 梯形积分: (f(x_i) + f(x_{i+1})) * dx / 2
+        # (f(x_i) + f(x_{i+1})) * dx / 2
         total_sum += (term_left + term_right) * dx / 2.0
 
     return total_sum * tobs * tobs
 
 
-# -----------------------------------------------------------------------------
-# 主接口
-# -----------------------------------------------------------------------------
 
 def inner_product0(fs, waveform1, waveform2, phic, snf=None):
     """
-    计算两个波形的内积 (SNR^2)。
-
-    修改说明:
-    不再在 Numba 内部计算噪声，而是直接调用全局的 S_n_lisa 函数。
-    这样既利用了 CSV 插值，又保留了 Numba 对积分的加速。
+    compute (SNR^2)。
     """
     num1 = len(waveform1)
     dt = 1.0 / fs
     tobs = num1 * dt
 
-    # 1. 生成频率轴
-    # 注意：FFT 结果是对称的，只需取一半 (0 到 Nyquist)
+    # 1. Construct the frequency array
+    # Note: the FFT output is symmetric, so only the positive-frequency
+    # half (0 to Nyquist) is needed
     xs = np.linspace(0, fs / 2.0, num=num1 // 2)
 
-    # 2. FFT 处理 (使用 Scipy FFT)
+    # 2. FFT
     hf_1 = scipy.fftpack.fft(waveform1)
     hf_1_abs = np.abs(hf_1)
     hf_1_angle = np.angle(hf_1)[0:num1 // 2]
-    # 归一化幅度
+    # normalize
     hf_1_norm = 2.0 / num1 * hf_1_abs[0:num1 // 2]
 
     hf_2 = scipy.fftpack.fft(waveform2)
@@ -2174,24 +2055,21 @@ def inner_product0(fs, waveform1, waveform2, phic, snf=None):
     hf_2_angle = np.angle(hf_2)[0:num1 // 2]
     hf_2_norm = 2.0 / num1 * hf_2_abs[0:num1 // 2]
 
-    # 3. [关键修改] 生成噪声向量 Snfvec
-    # 我们直接调用顶部的 S_n_lisa 函数，它已经支持了向量化和 CSV 插值
-    # 这里的计算是在 Python/Numpy 层完成的，非常快
+    # 3. noise vector Snfvec
     if snf is None:
-        # 默认调用全局定义的 S_n_lisa
         Snfvec = S_n_lisa(xs)
     else:
-        # 如果用户传了自定义 snf 函数
         try:
             Snfvec = snf(xs)
         except Exception:
             Snfvec = np.array([snf(f) for f in xs])
 
-    # 确保类型是 float64，防止 Numba 报错
     Snfvec = np.asarray(Snfvec, dtype=np.float64)
 
-    # 4. 数据切片 (去除直流分量 index 0，因为它通常是无意义的或无限大噪声)
-    # 准备传给 Numba 的数组
+    # 4. Slice the data
+    # Remove the DC component (index 0), since it is usually
+    # unphysical or associated with effectively infinite noise.
+    # Prepare arrays for the Numba-accelerated routine
     h1left = hf_1_norm[1:-1]
     h1right = hf_1_norm[2:]
     h1_angle_left = hf_1_angle[1:-1]
@@ -2208,8 +2086,9 @@ def inner_product0(fs, waveform1, waveform2, phic, snf=None):
     xsl = xs[1:-1]
     xsr = xs[2:]
 
-    # 简单检查防止 Snf 为 0 导致除零错误 (虽然 S_n_lisa 逻辑里不会返回0)
-    # 如果极小，置为一个极大值
+    # Simple safeguard against division-by-zero errors if Snf becomes zero
+    # (although the S_n_lisa logic should never return exactly zero)
+    # If Snf is extremely small, replace it with a very large value
     mask_zero = (snfleft <= 0)
     if np.any(mask_zero):
         snfleft[mask_zero] = 1e100
@@ -2217,7 +2096,7 @@ def inner_product0(fs, waveform1, waveform2, phic, snf=None):
     if np.any(mask_zero_r):
         snfright[mask_zero_r] = 1e100
 
-    # 5. 调用 Numba 加速的积分函数
+    # 5. Numba
     ABval_raw = compute_integral_sum(
         h1left, h1right, h2left, h2right,
         h1_angle_left, h1_angle_right,
@@ -2232,25 +2111,22 @@ def inner_product0(fs, waveform1, waveform2, phic, snf=None):
 
 def inner_product(fs, waveform1, waveform2, phic, snf=None):
     """
-    计算两个波形的内积 (SNR^2)。
-
-    修改说明:
-    不再在 Numba 内部计算噪声，而是直接调用全局的 S_n_lisa 函数。
-    这样既利用了 CSV 插值，又保留了 Numba 对积分的加速。
+    Compute the inner product (SNR^2) between two waveforms.
     """
     num1 = len(waveform1)
     dt = 1.0 / fs
     tobs = num1 * dt
 
-    # 1. 生成频率轴 (仅修改此处的定义，严格对齐 FFT 的物理频率点)
-    # FFT 的真实频率间隔是 fs / num1，取前 num1 // 2 个点
+    # 1. Construct the frequency array
+    # The true FFT frequency spacing is fs / num1;
+    # keep only the first num1 // 2 frequency bins
     xs = np.arange(num1 // 2) * (fs / num1)
 
-    # 2. FFT 处理 (使用 Scipy FFT)
+    # 2. FFT
     hf_1 = scipy.fftpack.fft(waveform1)
     hf_1_abs = np.abs(hf_1)
     hf_1_angle = np.angle(hf_1)[0:num1 // 2]
-    # 归一化幅度
+    # normalize
     hf_1_norm = 2.0 / num1 * hf_1_abs[0:num1 // 2]
 
     hf_2 = scipy.fftpack.fft(waveform2)
@@ -2258,24 +2134,21 @@ def inner_product(fs, waveform1, waveform2, phic, snf=None):
     hf_2_angle = np.angle(hf_2)[0:num1 // 2]
     hf_2_norm = 2.0 / num1 * hf_2_abs[0:num1 // 2]
 
-    # 3. [关键修改] 生成噪声向量 Snfvec
-    # 我们直接调用顶部的 S_n_lisa 函数，它已经支持了向量化和 CSV 插值
-    # 这里的计算是在 Python/Numpy 层完成的，非常快
+    # 3. generate noise vector Snfvec
     if snf is None:
-        # 默认调用全局定义的 S_n_lisa
         Snfvec = S_n_lisa(xs)
     else:
-        # 如果用户传了自定义 snf 函数
         try:
             Snfvec = snf(xs)
         except Exception:
             Snfvec = np.array([snf(f) for f in xs])
 
-    # 确保类型是 float64，防止 Numba 报错
     Snfvec = np.asarray(Snfvec, dtype=np.float64)
 
-    # 4. 数据切片 (去除直流分量 index 0，因为它通常是无意义的或无限大噪声)
-    # 准备传给 Numba 的数组
+    # 4. Slice the data
+    # Remove the DC component (index 0), since it is usually
+    # unphysical or associated with effectively infinite noise.
+    # Prepare arrays for the Numba-accelerated routine
     h1left = hf_1_norm[1:-1]
     h1right = hf_1_norm[2:]
     h1_angle_left = hf_1_angle[1:-1]
@@ -2292,8 +2165,6 @@ def inner_product(fs, waveform1, waveform2, phic, snf=None):
     xsl = xs[1:-1]
     xsr = xs[2:]
 
-    # 简单检查防止 Snf 为 0 导致除零错误 (虽然 S_n_lisa 逻辑里不会返回0)
-    # 如果极小，置为一个极大值
     mask_zero = (snfleft <= 0)
     if np.any(mask_zero):
         snfleft[mask_zero] = 1e100
@@ -2301,7 +2172,6 @@ def inner_product(fs, waveform1, waveform2, phic, snf=None):
     if np.any(mask_zero_r):
         snfright[mask_zero_r] = 1e100
 
-    # 5. 调用 Numba 加速的积分函数
     ABval_raw = compute_integral_sum(
         h1left, h1right, h2left, h2right,
         h1_angle_left, h1_angle_right,
@@ -2316,7 +2186,7 @@ def inner_product(fs, waveform1, waveform2, phic, snf=None):
 
 def compute_characteristic_strain_numerical(h_t, ts, plot=False):
     """
-    计算数值波形的特征应变谱 (Characteristic Strain Spectrum, hc,num)
+    (Characteristic Strain Spectrum, hc,num)
     """
     import scipy.fftpack
     import matplotlib.pyplot as plt
@@ -2332,25 +2202,19 @@ def compute_characteristic_strain_numerical(h_t, ts, plot=False):
     dt = 1.0 / ts
     tobs_sec = num1 * dt
 
-    # 1. 生成频率轴 (仅取正半轴)
     xs = np.arange(num1 // 2) * (ts / num1)
 
-    # 2. FFT 计算
     hf = scipy.fftpack.fft(h_t)
     hf_abs = np.abs(hf)
 
-    # 3. 归一化幅度与特征应变计算
     hN = (2.0 / num1) * hf_abs[0:num1 // 2]
     hc_num = hN * np.sqrt(xs * tobs_sec)
 
-    # 4. 绘图对比
     if plot:
         fig, ax = plt.subplots(1, 1, figsize=(8, 6), dpi=100)
 
-        # 修改点：强制 LISA Noise 曲线在 [1e-7, 0.1] Hz 范围内独立采样
         f_noise = np.logspace(-7, -1, 1000)
 
-        # 调用当前文件内的 S_n_lisa
         try:
             Snf_vals = S_n_lisa(f_noise)
         except Exception:
@@ -2358,10 +2222,8 @@ def compute_characteristic_strain_numerical(h_t, ts, plot=False):
 
         hc_noise = np.sqrt(f_noise * Snf_vals)
 
-        # 绘制背景噪声曲线 (固定频率轴 f_noise)
         ax.loglog(f_noise, hc_noise, color='black', label='LISA Noise', zorder=1)
 
-        # 绘制信号数值特征应变 (使用信号自带的频率轴 xs，并跳过 f=0 的直流分量)
         ax.loglog(xs[1:], hc_num[1:], color='blue', label=r'Numerical $h_{c, \rm num}$', zorder=2)
 
         ax.set_xlim(1e-5, 0.1)

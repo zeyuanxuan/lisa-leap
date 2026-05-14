@@ -186,9 +186,9 @@ setup(
     include_package_data=True,
     package_data={
         'leap': [
-            '*.csv', '*.npy', '*.npz',  # 包含 leap 根目录下的数据
-            '*/*.csv', '*/*.npy', '*/*.npz',  # 包含一级子目录下的数据 (如 GN_modeling/)
-            '*/*/*.csv', '*/*/*.npy', '*/*/*.npz',  # 包含二级子目录下的数据 (如 GN_modeling/data/)
+            '*.csv', '*.npy', '*.npz',
+            '*/*.csv', '*/*.npy', '*/*.npz',
+            '*/*/*.csv', '*/*/*.npy', '*/*/*.npz',
         ],
 
         'LISAeccentric': ['*.py'],

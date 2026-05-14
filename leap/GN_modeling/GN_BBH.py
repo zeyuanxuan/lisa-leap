@@ -41,14 +41,15 @@ C_val = sciconsts.c
 # ==========================================
 class MergerTimeAccelerator:
     """
-    预计算 Peters (1964) 积分因子的插值表。
-    支持磁盘缓存：首次运行会计算并保存为 .npz 文件，之后直接读取。
+    Precompute interpolation tables for the Peters (1964) integrals.
+
+    Supports disk caching: on first run, the tables are computed and saved
+    to a .npz file; subsequent runs load the cached data directly.
     """
 
     def __init__(self, cache_file='merger_time_table.npz'):
         self.cache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), cache_file)
 
-        # 尝试加载缓存
         if self._load_cache():
             pass
             # print(f"[System] Loaded merger time table from {self.cache_file}")
@@ -57,20 +58,19 @@ class MergerTimeAccelerator:
             self._compute_and_save_table()
             print(f"[System] Table computed and saved to {self.cache_file}")
 
-        # 使用 Pchip 插值 (保单调性)
         self.interpolator = PchipInterpolator(self.e_grid, self.f_vals)
 
     def _compute_and_save_table(self):
-        # 使用对数分布采样 e，重点加密 e->1 的区域
-        # x 从 0 到 5, e = 1 - 10^-x
+        # Use logarithmic sampling for eccentricity e, with higher resolution
+        # near e -> 1.
+        # x ranges from 0 to 5, and e = 1 - 10^-x
         x_vals = np.linspace(0, 5, 2000)
         self.e_grid = 1.0 - np.power(10, -x_vals)
         self.e_grid[0] = 0.0  # 修正第一个点完全为0
 
-        # 计算对应的无量纲因子 F(e)
+        # F(e)
         self.f_vals = np.array([self._compute_dimensionless_factor(e) for e in self.e_grid])
 
-        # 保存到磁盘
         np.savez(self.cache_file, e_grid=self.e_grid, f_vals=self.f_vals)
 
     def _load_cache(self):
@@ -86,7 +86,6 @@ class MergerTimeAccelerator:
             return False
 
     def _compute_dimensionless_factor(self, e0):
-        """核心积分逻辑 (与原代码一致，但只计算无量纲部分)"""
         if e0 < 1e-6: return 1.0
 
         term_c0 = np.power(e0, 12.0 / 19.0) * np.power(1 + 121.0 / 304.0 * e0 ** 2, 870.0 / 2299.0)
@@ -103,19 +102,15 @@ class MergerTimeAccelerator:
         return (48.0 / 19.0) * np.power(c0_norm, 4.0) * integral_val
 
     def get_factor(self, e):
-        # 处理边界和解析延拓
         if e < 1e-4: return 1.0
-        # 修正系数为 768/425
         if e > 0.99999:
             return (768.0 / 425.0) * np.power(1 - e ** 2, 3.5)
         return self.interpolator(e)
 
 
-# 初始化全局加速器实例
 _ACCELERATOR = MergerTimeAccelerator()
 
 
-# tmerger 函数保持不变，直接调用 _ACCELERATOR.get_factor
 def tmerger_integral(m1, m2, a0, e0):
     beta = 64.0 / 5.0 * m1 * m2 * (m1 + m2)
     if beta == 0: return 1e99
@@ -172,16 +167,10 @@ _LISA_NOISE_DATA = None
 
 
 def _try_load_lisa_noise():
-    """
-    尝试加载 LISA_noise_ASD.csv。
-    支持 Log-Log 预计算，并兼容 core.py 的注入机制。
-    自动搜索当前目录和上一级目录。
-    """
     global _LISA_NOISE_DATA
     try:
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # 搜索路径策略：先找当前目录，再找上一级目录（兼容不同包结构）
         possible_paths = [
             os.path.join(current_dir, 'LISA_noise_ASD.csv'),
             os.path.join(os.path.dirname(current_dir), 'LISA_noise_ASD.csv')
@@ -194,29 +183,26 @@ def _try_load_lisa_noise():
                 break
 
         if file_path:
-            # 尝试读取
             try:
                 data = np.loadtxt(file_path, delimiter=',')
             except ValueError:
                 data = np.loadtxt(file_path, delimiter=',', skiprows=1)
 
-            # 1. 排序与清洗
             sort_idx = np.argsort(data[:, 0])
             sorted_data = data[sort_idx]
 
             f_data = sorted_data[:, 0]
             asd_data = sorted_data[:, 1]
 
-            # 过滤非正值
+
             mask = (f_data > 0) & (asd_data > 0)
             f_data = f_data[mask]
             asd_data = asd_data[mask]
 
-            # 2. 预计算 Log10 数据 (用于 Log-Log 插值)
+
             log_f = np.log10(f_data)
             log_asd = np.log10(asd_data)
 
-            # 3. 计算低频延拓斜率 (Slope)
             # y = kx + b -> slope = (y1-y0)/(x1-x0)
             if len(log_f) >= 2:
                 low_f_slope = (log_asd[1] - log_asd[0]) / (log_f[1] - log_f[0])
@@ -226,12 +212,12 @@ def _try_load_lisa_noise():
             _LISA_NOISE_DATA = {
                 'f_min': f_data[0],
                 'f_max': f_data[-1],
-                'log_f': log_f,  # 存储 log(f)
-                'log_asd': log_asd,  # 存储 log(ASD)
+                'log_f': log_f,
+                'log_asd': log_asd,
                 'low_f_slope': low_f_slope,
                 'log_f_0': log_f[0],
                 'log_asd_0': log_asd[0],
-                'use_file': True  # 标记位
+                'use_file': True
             }
             # print(f"[Info] Loaded LISA noise from {os.path.basename(file_path)}")
         else:
@@ -243,7 +229,7 @@ def _try_load_lisa_noise():
         _LISA_NOISE_DATA = None
 
 
-# 初始化加载
+
 _try_load_lisa_noise()
 
 
@@ -314,20 +300,16 @@ def forb(M, a):
 
 
 def J(n, x):
-    # scipy.special.jv 原生支持数组输入
     return scipy.special.jv(n, x)
 
 
 def g(n, e):
-    # n 可以是数组，e 是标量
-    # 这里所有的计算都会自动广播 (Broadcasting)
     ne = n * e
 
     term1 = J(n - 2, ne) - 2 * e * J(n - 1, ne) + 2 / n * J(n, ne) + 2 * e * J(n + 1, ne) - J(n + 2, ne)
     term2 = J(n - 2, ne) - 2 * J(n, ne) + J(n + 2, ne)
     term3 = J(n, ne)
 
-    # 注意：n**4 可能会很大，但在 float64 下通常没问题
     result = np.power(n, 4.0) / 32.0 * (
             np.power(term1, 2.0) +
             (1 - e * e) * np.power(term2, 2.0) +
@@ -386,14 +368,6 @@ def _get_sn_val_jit(f, use_file, log_f_grid, log_asd_grid, low_f_slope, log_f_0,
 
 @njit(fastmath=True, cache=True)
 def _dSNR_high_E_kernel(f_arr, n_vals, g_vals, delta_log_f, use_file, log_f, log_asd, slope, lf0, lasd0):
-    """
-    修改说明：
-    1. 参数 deltaf 变为 delta_log_f
-    2. 积分公式变更：
-       原积分: Integral[ g / (f^2 * Sn) * df ]
-       变量代换: df = f * d(ln f)
-       新积分: Integral[ g / (f^2 * Sn) * f * d(ln f) ] = Integral[ g / (f * Sn) * d(ln f) ]
-    """
     total = 0.0
     n_len = len(f_arr)
 
@@ -405,7 +379,6 @@ def _dSNR_high_E_kernel(f_arr, n_vals, g_vals, delta_log_f, use_file, log_f, log
 
             if sn > 0:
                 g = g_vals[i]
-                # 修改点：除数从 f*f 改为 f，因为 df = f * d(log_f)
                 term = g / (f * sn)
                 total += term
 
@@ -414,7 +387,6 @@ def _dSNR_high_E_kernel(f_arr, n_vals, g_vals, delta_log_f, use_file, log_f, log
 
 @njit(fastmath=True, cache=True)
 def _dSNR_low_E_kernel(n_arr, g_vals, forb_val, h0_val, use_file, log_f, log_asd, slope, lf0, lasd0):
-    # 低偏心率部分保持不变
     total = 0.0
     n_len = len(n_arr)
 
@@ -446,7 +418,6 @@ def dSNR2dt_numpy(m1, m2, a, e, Dl):
 
     f0 = 1. / 2. / pi * np.sqrt(m1 + m2) * np.power(a, -1.5)
 
-    # 阈值判断标准保持线性逻辑，或者根据需要调整
     threshold = (fmax - fmin) / fnumber
 
     # Prepare Noise Data for JIT
@@ -465,26 +436,22 @@ def dSNR2dt_numpy(m1, m2, a, e, Dl):
         lf0 = _LISA_NOISE_DATA['log_f_0']
         lasd0 = _LISA_NOISE_DATA['log_asd_0']
 
-    # --- High Eccentricity Mode (修改部分) ---
+    # --- High Eccentricity Mode ---
     if f0 * 10 < threshold:
         h = np.sqrt(32. / 5.) * m1 * m2 / Dl / a
 
-        # 修改 1: 使用 geomspace 生成对数均匀分布点
         f_arr = np.geomspace(fmin, fmax, fnumber)
 
-        # 修改 2: 计算对数步长 d(ln f)
         # d(ln f) = ln(fmax / fmin) / (N - 1)
         delta_log_f = np.log(fmax / fmin) / (fnumber - 1)
 
-        # 2. Vectorized n calculation
+        # Vectorized n calculation
         n_vals = (f_arr / f0).astype(np.int64)
 
-        # 3. Calculate g using SciPy
-        # 确保外部的 g 函数能处理 n_vals
+        # Calculate g using SciPy
         g_vals = g(n_vals, e)
 
-        # 4. Kernel Summation (JIT)
-        # 传入 delta_log_f 而不是 deltaf
+        # Kernel Summation (JIT)
         raw_sum = _dSNR_high_E_kernel(
             f_arr, n_vals, g_vals, delta_log_f,
             use_file, log_f_g, log_asd_g, slope, lf0, lasd0
@@ -492,7 +459,7 @@ def dSNR2dt_numpy(m1, m2, a, e, Dl):
 
         return raw_sum * 8 * h * h * f0
 
-    # --- Low Eccentricity Mode (保持不变) ---
+    # --- Low Eccentricity Mode ---
     else:
         nmin = int(fmin / f0) + 1
         nmax = int(fmax / f0) + 2
@@ -646,7 +613,6 @@ class _GNBBHInternalManager:
         e_vals = []
         indices = []
         for i, sys_data in enumerate(self.raw_data_gn):
-            # [MODIFIED] 由于 e2 在索引 5 处被插入，原本的索引 9, 10 变为 10, 11
             # 0:id, 1:m1, 2:m2, 3:a1, 4:e1, 5:e2(NEW), 6:a2, 7:i, 8:tf, 9:tfin, 10:afin, 11:efin
             a_fin = sys_data[10]
             e_fin = sys_data[11]
