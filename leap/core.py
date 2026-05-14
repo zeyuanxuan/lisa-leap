@@ -312,105 +312,90 @@ class CompactBinary:
         return snr
 
     @mute_if_global_verbose_false
-    def compute_snr_analytical(self, m1_msun, m2_msun, a_au, e, Dl_kpc, tobs_yr,
-                               quick_analytical=False,
+    def compute_snr_analytical(self, tobs_yr, quick_analytical=False, verbose=True,
                                force_evolve=False, evolve_threshold=10.0,
                                n_segments=100, f_orb_max_Hz=0.1):
         """
-        Estimate Sky-Averaged SNR (Analytical).
+        Compute Sky-Averaged SNR (Analytical).
 
         Args:
-            m1_msun, m2_msun (float): Component masses [Msun].
-            a_au (float):              Semi-major axis [AU].
-            e (float):                 Eccentricity.
-            Dl_kpc (float):            Luminosity distance [kpc].
-            tobs_yr (float):           Observation time [yr].
-            quick_analytical (bool):   Fast geometric approximation.
+            tobs_yr (float):           Observation duration in years.
+            quick_analytical (bool):   Use fast geometric approximation.
+            verbose (bool):            Per-call status print. Default True.
             force_evolve (bool):       Force time-evolving SNR integration
                                        (only used when quick_analytical=False).
             evolve_threshold (float):  Auto-trigger evolving integration when
-                                       tmerger < evolve_threshold * tobs.
-                                       Default 10.0.
-            n_segments (int):          Number of log-spaced time segments used
-                                       for the evolving-SNR integral. Default 200.
+                                       tmerger < evolve_threshold * tobs. Default 10.0.
+            n_segments (int):          Number of log-spaced segments for the
+                                       evolving-SNR integral. Default 200.
             f_orb_max_Hz (float):      Orbital-frequency cutoff [Hz]; integration
                                        stops once f_orb exceeds this. Default 0.1.
+
         """
-        # ---- Geometric (G=c=1) unit conversion ----
-        m1_s = m1_msun * m_sun
-        m2_s = m2_msun * m_sun
-        a_s = a_au * AU
-        Dl_s = Dl_kpc * 1000.0 * pc
+        m1_s = self.m1 * m_sun
+        m2_s = self.m2 * m_sun
+        a_s = self.a * AU
+        Dl_s = self.Dl * 1000.0 * pc
         tobs_s = tobs_yr * years
 
+        snr = 0.0
+
         if quick_analytical:
-            # ===== Quick Analytical (Geometric Approximation) — unchanged =====
-            if a_au <= 0 or e >= 1.0:
+            if self.a <= 0 or self.e >= 1.0:
                 return 0.0
 
             used_tobs = tobs_s
             try:
-                t_lower = PN_waveform.tmerger_lower(m1_s, m2_s, a_s, e)
+                t_lower = PN_waveform.tmerger_lower(m1_s, m2_s, a_s, self.e)
                 if t_lower <= tobs_s:
-                    t_real = PN_waveform.tmerger_integral(m1_s, m2_s, a_s, e)
-                    if t_real <= tobs_s:
-                        print(f"[Warning] System evolves too fast! "
-                              f"tmerger ({t_real:.2e} s) < tobs ({tobs_s:.2e} s).")
-                        print(f"Approximation inaccurate. Adjusting tobs to : {t_real:.2e} s")
-                        used_tobs = t_real
-            except AttributeError:
-                try:
-                    t_real = PN_waveform.tmerger_integral(m1_s, m2_s, a_s, e)
+                    t_real = PN_waveform.tmerger_integral(m1_s, m2_s, a_s, self.e)
                     if t_real <= tobs_s:
                         used_tobs = t_real
-                except Exception:
-                    pass
-            except Exception:
+            except:
                 pass
 
-            rp_s = a_s * (1 - e)
-            if rp_s <= 0:
-                return 0.0
+            rp_s = a_s * (1 - self.e)
+            if rp_s > 0:
+                term_f = (m1_s + m2_s) / (4 * pi * pi * np.power(rp_s, 3.0))
+                f0max = 2 * np.sqrt(term_f)
+                h0max = np.sqrt(32 / 5) * m1_s * m2_s / (Dl_s * a_s * (1 - self.e))
+                Sn_val = PN_waveform.S_n_lisa(f0max)
+                if Sn_val > 0:
+                    snr = h0max / np.sqrt(Sn_val) * np.sqrt(
+                        used_tobs * np.power(1 - self.e, 1.5)
+                    )
 
-            term_f = (m1_s + m2_s) / (4 * pi * pi * np.power(rp_s, 3.0))
-            f0max = 2 * np.sqrt(term_f)
-            h0max = np.sqrt(32 / 5) * m1_s * m2_s / (Dl_s * a_s * (1 - e))
-            Sn_val = PN_waveform.S_n_lisa(f0max)
-
-            if Sn_val <= 0:
-                snr = 0.0
-            else:
-                sqrtsnf = np.sqrt(Sn_val)
-                snr = h0max / sqrtsnf * np.sqrt(used_tobs * np.power(1 - e, 1.5))
-
-            print(f"[Analysis] SNR_analytical (Quick) = {snr:.4f}")
+            if verbose:
+                print(f"[CompactBinary] SNR (Quick) = {snr:.4f}")
+            self.extra['snr_analytical'] = snr
             return snr
 
         # ===== Full Harmonic Integration: decide static vs evolving =====
         try:
-            t_merger_s = PN_waveform.tmerger_integral(m1_s, m2_s, a_s, e)
+            t_merger_s = PN_waveform.tmerger_integral(m1_s, m2_s, a_s, self.e)
         except Exception:
             t_merger_s = np.inf
 
         use_evolving = force_evolve or (t_merger_s < evolve_threshold * tobs_s)
 
         if not use_evolving:
-            # ---- Original (non-evolving) full-integration path ----
-            snr = PN_waveform.SNR(m1_s, m2_s, a_s, e, Dl_s, tobs_s)
-            print(f"[Analysis] SNR_analytical (Full, non-evolving) = {snr:.4f}  "
-                  f"[tmerger/tobs = {t_merger_s / tobs_s:.2e}]")
+            snr = PN_waveform.SNR(m1_s, m2_s, a_s, self.e, Dl_s, tobs_s)
+            if verbose:
+                print(f"[CompactBinary] SNR (Full, non-evolving) = {snr:.4f}  "
+                      f"[tmerger/tobs = {t_merger_s / tobs_s:.2e}]")
+            self.extra['snr_analytical'] = snr
             return snr
 
         # ---- Time-evolving SNR integration ----
         t_end_s = min(tobs_s, t_merger_s)
         if t_end_s <= 0:
+            self.extra['snr_analytical'] = 0.0
             return 0.0
 
-        # Log-spaced "time-to-end" grid: dense sampling near merger.
         log_min = np.log10(max(t_end_s * 1e-6, 1.0))
         log_max = np.log10(t_end_s)
-        tau = np.logspace(log_max, log_min, n_segments + 1)  # decreasing
-        t_grid = t_end_s - tau  # increasing
+        tau = np.logspace(log_max, log_min, n_segments + 1)
+        t_grid = t_end_s - tau
         t_grid[0] = 0.0
         t_grid[-1] = t_end_s
 
@@ -419,9 +404,7 @@ class CompactBinary:
         n_used = 0
         truncated_by_freq = False
 
-        a_cur = a_s
-        e_cur = e
-        t_cur = 0.0
+        a_cur, e_cur, t_cur = a_s, self.e, 0.0
 
         for i in range(n_segments):
             t_next = t_grid[i + 1]
@@ -429,7 +412,6 @@ class CompactBinary:
             if dt <= 0:
                 continue
 
-            # Frequency cutoff at start of segment.
             if a_cur > 0:
                 f_orb_cur = np.sqrt(M_tot / (4 * pi * pi * a_cur ** 3))
             else:
@@ -438,24 +420,20 @@ class CompactBinary:
                 truncated_by_freq = True
                 break
 
-            # Midpoint state for this segment.
             try:
                 a_mid, e_mid = PN_waveform.solve_ae_after_time(
                     m1_s, m2_s, a_cur, e_cur, dt / 2.0
                 )
             except Exception:
                 a_mid, e_mid = a_cur, e_cur
-
             if (a_mid <= 0) or (e_mid >= 1.0) or (not np.isfinite(a_mid)):
                 truncated_by_freq = True
                 break
-
             f_orb_mid = np.sqrt(M_tot / (4 * pi * pi * a_mid ** 3))
             if f_orb_mid > f_orb_max_Hz:
                 truncated_by_freq = True
                 break
 
-            # Static-segment SNR contribution: square it to get dSNR^2.
             try:
                 dsnr = PN_waveform.SNR(m1_s, m2_s, a_mid, e_mid, Dl_s, dt)
             except Exception:
@@ -464,7 +442,6 @@ class CompactBinary:
                 snr2_total += dsnr * dsnr
                 n_used += 1
 
-            # Advance true state across the segment.
             try:
                 a_new, e_new = PN_waveform.solve_ae_after_time(
                     m1_s, m2_s, a_cur, e_cur, dt
@@ -475,17 +452,19 @@ class CompactBinary:
             if (a_new <= 0) or (e_new >= 1.0) or (not np.isfinite(a_new)):
                 truncated_by_freq = True
                 break
-
             a_cur, e_cur, t_cur = a_new, e_new, t_next
 
         snr = np.sqrt(snr2_total)
 
-        reason = "forced" if force_evolve else \
-            f"tmerger/tobs={t_merger_s / tobs_s:.2e} < {evolve_threshold}"
-        trunc_msg = " [truncated at f_orb cutoff]" if truncated_by_freq else ""
-        print(f"[Analysis] SNR_analytical (Full, evolving) = {snr:.4f}  "
-              f"[{reason}, n_seg_used={n_used}/{n_segments}, "
-              f"t_end={t_end_s / years:.3e} yr]{trunc_msg}")
+        if verbose:
+            reason = "forced" if force_evolve else \
+                f"tmerger/tobs={t_merger_s / tobs_s:.2e} < {evolve_threshold}"
+            trunc_msg = " [truncated at f_orb cutoff]" if truncated_by_freq else ""
+            print(f"[CompactBinary] SNR (Full, evolving) = {snr:.4f}  "
+                  f"[{reason}, n_seg_used={n_used}/{n_segments}, "
+                  f"t_end={t_end_s / years:.3e} yr]{trunc_msg}")
+
+        self.extra['snr_analytical'] = snr
         return snr
 
     @mute_if_global_verbose_false
@@ -1231,7 +1210,7 @@ class LISAeccentric:
         @mute_if_global_verbose_false
         def compute_snr_analytical(self, tobs_yr, quick_analytical=False,
                                    force_evolve=False, evolve_threshold=10.0,
-                                   n_segments=100, f_orb_max_Hz=0.1):
+                                   n_segments=100, f_orb_max_Hz=0.1, verbose=True):
             """
             Compute Sky-Averaged SNR (Analytical).
 
@@ -1248,6 +1227,7 @@ class LISAeccentric:
                 f_orb_max_Hz (float): Orbital frequency cutoff [Hz]. The integration
                     stops once f_orb exceeds this value (the source has left the LISA
                     band and SNR contributions are negligible). Default 0.1.
+                verbose (bool): Print status.
             """
 
             m1_s = self.m1 * m_sun
@@ -1298,7 +1278,8 @@ class LISAeccentric:
                 if not use_evolving:
                     # ---- Original (non-evolving) full-integration path ----
                     snr = PN_waveform.SNR(m1_s, m2_s, a_s, self.e, Dl_s, tobs_s)
-                    print(f"[CompactBinary] SNR (Full, non-evolving) = {snr:.4f}  "
+                    if verbose:
+                        print(f"[CompactBinary] SNR (Full, non-evolving) = {snr:.4f}  "
                               f"[tmerger/tobs = {t_merger_s / tobs_s:.2e}]")
                 else:
                     # ---- Time-evolving SNR integration ----
@@ -1406,7 +1387,7 @@ class LISAeccentric:
 
                     snr = np.sqrt(snr2_total)
 
-                    if True:
+                    if verbose:
                         reason = "forced" if force_evolve else \
                             f"tmerger/tobs={t_merger_s / tobs_s:.2e} < {evolve_threshold}"
                         trunc_msg = " [truncated at f_orb cutoff]" if truncated_by_freq else ""
@@ -1414,7 +1395,7 @@ class LISAeccentric:
                               f"[{reason}, n_seg_used={n_used}/{n_segments}, "
                               f"t_end={t_end_s / years:.3e} yr]{trunc_msg}")
 
-            if quick_analytical:
+            if verbose and quick_analytical:
                 print(f"[CompactBinary] SNR (Quick) = {snr:.4f}")
 
             self.extra['snr_analytical'] = snr
