@@ -328,29 +328,47 @@ print(f"      Return Value: {t_merge_yr:.4e} [years] (Type: float)")
 ---
 
 #### `.compute_snr_analytical()`
-Computes the sky-averaged Signal-to-Noise Ratio (SNR) for the LISA detector. This method supports two calculation modes: full integration over harmonics (default) or a fast geometric approximation.
+Computes the sky-averaged Signal-to-Noise Ratio (SNR) for the LISA detector. This method supports three calculation modes: the original full integration over harmonics (default), a fast geometric approximation, and a time-evolving integration for rapidly-chirping systems.
 * **Input**:
     * `tobs_yr` (float): Observation duration in years.
     * `quick_analytical` (bool, optional):
         * If `False` (default): Uses full integration (summing over harmonics via `PN_waveform.SNR`).
         * If `True`: Uses a fast geometric approximation based on peak frequency and amplitude, suitable for high-$e$ systems.
+    * `force_evolve` (bool, optional): Force the use of the time-evolving SNR integration regardless of the merger timescale. Only effective when `quick_analytical=False`. Default `False`.
+    * `evolve_threshold` (float, optional): Threshold ratio that triggers the time-evolving integration automatically. When `t_merger < evolve_threshold * tobs`, the system is considered to be evolving significantly during the observation and the evolving integral is used instead of the static-source one. Only effective when `quick_analytical=False`. Default `10.0`.
+    * `n_segments` (int, optional): Number of log-spaced time segments used by the evolving SNR integral. Segments are denser near merger where orbital evolution is fastest. Default `200`.
+    * `f_orb_max_Hz` (float, optional): Orbital-frequency upper cutoff [Hz]. The evolving integration stops once $f_{\rm orb}$ exceeds this value, since by then the source has left the LISA band and further SNR contributions are negligible. Default `0.1`.
     * `verbose` (bool, optional): Controls standard output printing. Default is `True`.
 * **Output**:
     * `snr_val` (float): The calculated SNR value.
     * **Note**: The result is also stored in `self.extra['snr_analytical']`.
 * **Notes:**
-    * The calculation assumes the binary's evolution is negligible during the observation.
-    * If the system's merger time is shorter than `tobs_yr`, the effective observation time is automatically capped at `t_merger` (with `quick_analytical=True` this also triggers a printed warning).
+    * **Branch selection (when `quick_analytical=False`):**
+        * If `force_evolve=True`, OR `t_merger < evolve_threshold * tobs`, the method uses the **time-evolving** integral: the orbit is propagated via Peters (1964) equations along $N$ log-spaced segments from $t=0$ to $\min(t_{\rm obs}, t_{\rm merger})$, each segment contributes $d{\rm SNR}^2$ assuming the midpoint orbital parameters are static, and the total is $\sqrt{\sum d{\rm SNR}^2}$.
+        * Otherwise (slow-evolution regime), the method falls back to the original static-source full-harmonic integration (`PN_waveform.SNR`), which assumes the orbit is essentially frozen during $t_{\rm obs}$.
+    * The evolving branch automatically truncates the integration once the orbital frequency exceeds `f_orb_max_Hz` (default 0.1 Hz). This avoids numerical issues very close to merger and costs no SNR (the band is already gone).
+    * If the system's merger time is shorter than `tobs_yr`, the effective observation time is capped at $t_{\rm merger}$ in all branches.
 
 **Example:**
 ```python
-snr_val = my_binary.compute_snr_analytical(tobs_yr=4.0, verbose=False, quick_analytical=False)
+# Default: full integration, auto-switches to evolving if t_merger < 10 * tobs
+snr_val = my_binary.compute_snr_analytical(tobs_yr=4.0, verbose=False)
 print(f"      Return Value: {snr_val:.4f} (Type: float)")
+
+# Force the time-evolving integral (useful for fast-chirping systems)
+snr_val_evolve = my_binary.compute_snr_analytical(
+    tobs_yr=4.0, force_evolve=True, n_segments=500, verbose=False
+)
+
+# Quick geometric approximation
+snr_val_quick = my_binary.compute_snr_analytical(
+    tobs_yr=4.0, quick_analytical=True, verbose=False
+)
 ```
 * **Output**:
-  ```
+```
       Return Value: 10.9644 (Type: float)
-  ```
+```
 
 ---
 
@@ -1076,7 +1094,7 @@ if lisa_resp is not None:
 ---
 
 #### `leap.Waveform.compute_snr_analytical()`
-Sky-averaged analytical SNR, assuming the source evolves slowly.
+Sky-averaged analytical SNR. Supports a fast geometric approximation, the original static-source full-harmonic integration, and a time-evolving integration for systems that chirp significantly during the observation.
 * **Input**:
     * `m1_msun`, `m2_msun` (float): Component masses [$M_\odot$].
     * `a_au` (float): Semi-major axis [au].
@@ -1084,22 +1102,41 @@ Sky-averaged analytical SNR, assuming the source evolves slowly.
     * `Dl_kpc` (float): Luminosity distance [kpc].
     * `tobs_yr` (float): Observation time [years].
     * `quick_analytical` (bool, optional): If `True`, use the fast geometric approximation instead of full harmonic integration. Default `False`.
+    * `force_evolve` (bool, optional): Force the use of the time-evolving SNR integration regardless of the merger timescale. Only effective when `quick_analytical=False`. Default `False`.
+    * `evolve_threshold` (float, optional): Threshold ratio that triggers the time-evolving integration automatically. When `t_merger < evolve_threshold * tobs`, the system is considered to be evolving significantly during the observation and the evolving integral is used instead of the static-source one. Only effective when `quick_analytical=False`. Default `10.0`.
+    * `n_segments` (int, optional): Number of log-spaced time segments used by the evolving SNR integral. Segments are denser near merger where orbital evolution is fastest. Default `200`.
+    * `f_orb_max_Hz` (float, optional): Orbital-frequency upper cutoff [Hz]. The evolving integration stops once $f_{\rm orb}$ exceeds this value, since by then the source has left the LISA band and further SNR contributions are negligible. Default `0.1`.
+    * `verbose` (bool, optional): Controls standard output printing. Default is `True`.
 * **Output**:
     * `snr` (float): Estimated SNR value.
+* **Notes:**
+    * **Branch selection (when `quick_analytical=False`):**
+        * If `force_evolve=True`, OR `t_merger < evolve_threshold * tobs`, the function uses the **time-evolving** integral: the orbit is propagated via Peters (1964) equations along $N$ log-spaced segments from $t=0$ to $\min(t_{\rm obs}, t_{\rm merger})$, each segment contributes $d{\rm SNR}^2$ assuming the midpoint orbital parameters are static, and the total is $\sqrt{\sum d{\rm SNR}^2}$.
+        * Otherwise (slow-evolution regime), the function falls back to the original static-source full-harmonic integration (`PN_waveform.SNR`), which assumes the orbit is essentially frozen during $t_{\rm obs}$.
+    * The evolving branch automatically truncates the integration once the orbital frequency exceeds `f_orb_max_Hz` (default 0.1 Hz). This avoids numerical issues very close to merger and costs no SNR (the band is already gone).
 
 **Example:**
 ```python
+# Default: full integration, auto-switches to evolving if t_merger < 10 * tobs
 snr_ana = leap.Waveform.compute_snr_analytical(
     m1_msun=10.0, m2_msun=10.0,
     a_au=0.1, e=0.99,
     Dl_kpc=8.0, tobs_yr=0.5,
 )
 print(f"   [Analytical] SNR ~ {snr_ana:.4f}")
+
+# Force time-evolving integration with higher resolution
+snr_evolve = leap.Waveform.compute_snr_analytical(
+    m1_msun=10.0, m2_msun=10.0,
+    a_au=0.1, e=0.99,
+    Dl_kpc=8.0, tobs_yr=0.5,
+    force_evolve=True, n_segments=500,
+)
 ```
 * **Output**:
-    ```
+```
      [Analytical] SNR ~ 354.9420
-    ```
+```
 
 ---
 
