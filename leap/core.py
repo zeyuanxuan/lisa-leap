@@ -1231,7 +1231,7 @@ class LISAeccentric:
         @mute_if_global_verbose_false
         def compute_snr_analytical(self, tobs_yr, quick_analytical=False,
                                    force_evolve=False, evolve_threshold=10.0,
-                                   n_segments=100, f_orb_max_Hz=0.1, verbose=True):
+                                   n_segments=100, f_orb_max_Hz=0.1):
             """
             Compute Sky-Averaged SNR (Analytical).
 
@@ -1248,7 +1248,6 @@ class LISAeccentric:
                 f_orb_max_Hz (float): Orbital frequency cutoff [Hz]. The integration
                     stops once f_orb exceeds this value (the source has left the LISA
                     band and SNR contributions are negligible). Default 0.1.
-                verbose (bool): Print status.
             """
 
             m1_s = self.m1 * m_sun
@@ -1299,8 +1298,7 @@ class LISAeccentric:
                 if not use_evolving:
                     # ---- Original (non-evolving) full-integration path ----
                     snr = PN_waveform.SNR(m1_s, m2_s, a_s, self.e, Dl_s, tobs_s)
-                    if verbose:
-                        print(f"[CompactBinary] SNR (Full, non-evolving) = {snr:.4f}  "
+                    print(f"[CompactBinary] SNR (Full, non-evolving) = {snr:.4f}  "
                               f"[tmerger/tobs = {t_merger_s / tobs_s:.2e}]")
                 else:
                     # ---- Time-evolving SNR integration ----
@@ -1408,7 +1406,7 @@ class LISAeccentric:
 
                     snr = np.sqrt(snr2_total)
 
-                    if verbose:
+                    if True:
                         reason = "forced" if force_evolve else \
                             f"tmerger/tobs={t_merger_s / tobs_s:.2e} < {evolve_threshold}"
                         trunc_msg = " [truncated at f_orb cutoff]" if truncated_by_freq else ""
@@ -1416,7 +1414,7 @@ class LISAeccentric:
                               f"[{reason}, n_seg_used={n_used}/{n_segments}, "
                               f"t_end={t_end_s / years:.3e} yr]{trunc_msg}")
 
-            if verbose and quick_analytical:
+            if quick_analytical:
                 print(f"[CompactBinary] SNR (Quick) = {snr:.4f}")
 
             self.extra['snr_analytical'] = snr
