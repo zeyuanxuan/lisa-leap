@@ -711,7 +711,7 @@ def solve_ae_after_time0(m1, m2, a0, e0, dt):
     return a_curr, e_curr
 
 
-def solve_ae_after_time(m1, m2, a0, e0, dt):
+def solve_ae_after_time01(m1, m2, a0, e0, dt):
     """
     Evolve system by dt seconds (Supports both forward and backward time evolution).
     Inputs: m1, m2 (seconds), a0 (seconds), e0 (dimensionless), dt (seconds).
@@ -745,6 +745,59 @@ def solve_ae_after_time(m1, m2, a0, e0, dt):
                         e_lower, e_upper, xtol=1e-12, maxiter=50)
     except Exception as e:
         print(f"[Warning] solve_ae failed for dt={dt}: {e}. Returning initial values.")
+        e_curr = e0
+
+    a_curr = c0 * peters_factor_func(e_curr)
+    return a_curr, e_curr
+
+def solve_ae_after_time(m1, m2, a0, e0, dt):
+    """
+    Evolve system by dt seconds (supports forward and backward).
+    Inputs: m1, m2 (seconds), a0 (seconds), e0 (dimensionless), dt (seconds).
+    Returns: a_curr, e_curr
+    """
+    # ---- Special case: circular / near-circular orbit ----
+    # Peters' eccentric inversion (c0 = a/peters_factor(e)) diverges as e->0,
+    # because e is a fixed point of de/dt. Use the closed-form circular law
+    # instead:  a(t)^4 = a0^4 - 4*beta*t,   e(t) = 0.
+    CIRC_THRESHOLD = 1e-10
+    if e0 < CIRC_THRESHOLD:
+        beta = (64.0 / 5.0) * m1 * m2 * (m1 + m2)  # geometric units
+        a4_new = a0**4 - 4.0 * beta * dt
+        if a4_new <= 0.0:
+            # Forward: merged. Backward: would imply a0 < 0 in the past.
+            return 0.0, 0.0
+        a_curr = a4_new ** 0.25
+        return a_curr, 0.0
+
+    # ---- Generic eccentric case (original code) ----
+    current_life = GWtime(m1, m2, a0, e0)
+
+    if dt > 0 and dt >= current_life:
+        return 0.0, 0.0
+
+    t_rem_target = current_life - dt
+
+    fact_e0 = peters_factor_func(e0)
+    if fact_e0 == 0:
+        return 0.0, 0.0  # Should not happen for e0 above threshold
+
+    c0 = a0 / fact_e0
+
+    if dt > 0:
+        e_lower, e_upper = 1e-6, e0
+    elif dt < 0:
+        e_lower, e_upper = e0, 1 - 1e-7
+    else:
+        return a0, e0
+
+    try:
+        e_curr = brentq(
+            lambda e: GWtime(m1, m2, c0 * peters_factor_func(e), e) - t_rem_target,
+            e_lower, e_upper, xtol=1e-12, maxiter=50
+        )
+    except Exception as exc:
+        print(f"[Warning] solve_ae failed for dt={dt}: {exc}. Returning initial values.")
         e_curr = e0
 
     a_curr = c0 * peters_factor_func(e_curr)
