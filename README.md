@@ -328,15 +328,15 @@ print(f"      Return Value: {t_merge_yr:.4e} [years] (Type: float)")
 ---
 
 #### `.compute_snr_analytical()`
-Computes the sky-averaged Signal-to-Noise Ratio (SNR) for the LISA detector. This method supports three calculation modes: the original full integration over harmonics (default), a fast geometric approximation, and a time-evolving integration for rapidly-chirping systems.
+Computes the sky-averaged Signal-to-Noise Ratio (SNR) for the LISA detector. This method supports the full integration of harmonics (default) and a fast geometric approximation. It also incorporates the time-evolving integration for systems that chirp significantly during the observation.
 * **Input**:
     * `tobs_yr` (float): Observation duration in years.
     * `quick_analytical` (bool, optional):
         * If `False` (default): Uses full integration (summing over harmonics via `PN_waveform.SNR`).
-        * If `True`: Uses a fast geometric approximation based on peak frequency and amplitude, suitable for high-$e$ systems.
+        * If `True`: Uses a fast geometric approximation based on peak frequency and amplitude, suitable for high-$e$ systems with slow evolution.
     * `force_evolve` (bool, optional): Force the use of the time-evolving SNR integration regardless of the merger timescale. Only effective when `quick_analytical=False`. Default `False`.
     * `evolve_threshold` (float, optional): Threshold ratio that triggers the time-evolving integration automatically. When `t_merger < evolve_threshold * tobs`, the system is considered to be evolving significantly during the observation and the evolving integral is used instead of the static-source one. Only effective when `quick_analytical=False`. Default `10.0`.
-    * `n_segments` (int, optional): Number of log-spaced time segments used by the evolving SNR integral. Segments are denser near merger where orbital evolution is fastest. Default `200`.
+    * `n_segments` (int, optional): Number of log-spaced time segments used by the evolving SNR integral. Segments are denser near merger where orbital evolution is fastest. Default `100`.
     * `f_orb_max_Hz` (float, optional): Orbital-frequency upper cutoff [Hz]. The evolving integration stops once $f_{\rm orb}$ exceeds this value, since by then the source has left the LISA band and further SNR contributions are negligible. Default `0.1`.
     * `verbose` (bool, optional): Controls standard output printing. Default is `True`.
 * **Output**:
@@ -1094,7 +1094,7 @@ if lisa_resp is not None:
 ---
 
 #### `leap.Waveform.compute_snr_analytical()`
-Sky-averaged analytical SNR. Supports a fast geometric approximation, the original static-source full-harmonic integration, and a time-evolving integration for systems that chirp significantly during the observation.
+Sky-averaged analytical SNR. Supports a fast geometric approximation (for high-e, slowly evolving systems) and the original full-harmonic integration. It incorporates the time-evolving integration for systems that chirp significantly during the observation.
 * **Input**:
     * `m1_msun`, `m2_msun` (float): Component masses [$M_\odot$].
     * `a_au` (float): Semi-major axis [au].
@@ -1104,7 +1104,7 @@ Sky-averaged analytical SNR. Supports a fast geometric approximation, the origin
     * `quick_analytical` (bool, optional): If `True`, use the fast geometric approximation instead of full harmonic integration. Default `False`.
     * `force_evolve` (bool, optional): Force the use of the time-evolving SNR integration regardless of the merger timescale. Only effective when `quick_analytical=False`. Default `False`.
     * `evolve_threshold` (float, optional): Threshold ratio that triggers the time-evolving integration automatically. When `t_merger < evolve_threshold * tobs`, the system is considered to be evolving significantly during the observation and the evolving integral is used instead of the static-source one. Only effective when `quick_analytical=False`. Default `10.0`.
-    * `n_segments` (int, optional): Number of log-spaced time segments used by the evolving SNR integral. Segments are denser near merger where orbital evolution is fastest. Default `200`.
+    * `n_segments` (int, optional): Number of log-spaced time segments used by the evolving SNR integral. Segments are denser near merger where orbital evolution is fastest. Default `100`.
     * `f_orb_max_Hz` (float, optional): Orbital-frequency upper cutoff [Hz]. The evolving integration stops once $f_{\rm orb}$ exceeds this value, since by then the source has left the LISA band and further SNR contributions are negligible. Default `0.1`.
     * `verbose` (bool, optional): Controls standard output printing. Default is `True`.
 * **Output**:
