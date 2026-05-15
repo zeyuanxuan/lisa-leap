@@ -1390,7 +1390,7 @@ This module lets users customize the LISA sensitivity curve used across the pack
 #### `leap.Noise.generate_noise_data()`
 Generates synthetic noise amplitude-spectral-density (ASD) data on a specified frequency grid.
 * **Input**:
-    * `model` (str, optional): Noise model. Default `'N2A5'`.
+    * `model` (str, optional): Noise model. Default `'official'`.
         * `'N2A5'`: Analytical LISA sensitivity including a specific realization of the galactic confusion-noise foreground.
         * `'official'`: Loads a tabulated ASD from `LISA_noise_ASD_official.csv` inside the package directory and interpolates (log-log, with power-law extrapolation below the tabulated range). Returns zeros if the file is missing.
     * `f_min`, `f_max` (float, optional): Frequency bounds [Hz]. Default `1e-6`, `1.0`.
