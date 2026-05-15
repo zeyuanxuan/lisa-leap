@@ -1508,7 +1508,7 @@ class LISAeccentric:
             self.noise_file_path = os.path.join(current_dir, 'LISA_noise_ASD.csv')
             self.base_backup_name = 'LISA_noise_ASD_original'
 
-        def generate_noise_data(self, model='N2A5', f_min=1e-6, f_max=1.0, n_points=3000):
+        def generate_noise_data(self, model='official', f_min=1e-6, f_max=1.0, n_points=3000):
             """
             Generates LISA Noise ASD based on the selected model.
             integrated with Log-Log extrapolation for better physical accuracy.
