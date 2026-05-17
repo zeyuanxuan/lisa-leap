@@ -949,7 +949,7 @@ Generates the time-domain waveform ($h_+, h_\times$) using a PN evolution model.
         * `input_mode` (str, optional): Determines how `a_au` is interpreted. Default `'a_au'`.
             * `'a_au'`: Input `a_au` is treated as **semi-major axis [au]**.
             * `'forb_Hz'`: Input `a_au` is treated as **orbital frequency [Hz]**.
-            * `'fangular_Hz'`: Input `a_au` is treated as **angular/peak frequency [Hz]** (the solver finds the corresponding $f_{\rm orb}$).
+            * `'fangular_Hz'`: Input `a_au` is treated as **angular frequency [Hz]** (the solver finds the corresponding $f_{\rm orb}$).
         * `a_au` (float): Value corresponding to `input_mode` (name kept for API stability even though the meaning switches).
     * **Physical parameters**:
         * `m1_msun`, `m2_msun` (float): Component masses [$M_\odot$].
