@@ -157,7 +157,7 @@ except FileNotFoundError:
 
 setup(
     name="lisa-leap",
-    version="0.1.3",
+    version="0.1.4",
     description="Toolbox for Eccentric BBH Populations and LISA Waveforms",
     long_description=long_description,
     long_description_content_type='text/markdown',
