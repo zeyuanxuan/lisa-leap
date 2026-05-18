@@ -1,6 +1,8 @@
 # leap: LISA Eccentricity Astrophysics Package
-**Xuan et al. (2026)**
+[![arXiv](https://img.shields.io/badge/arXiv-2605.15265-b31b1b.svg)](https://arxiv.org/abs/2605.15265)
+[![PyPI](https://img.shields.io/pypi/v/lisa-leap.svg)](https://pypi.org/project/lisa-leap/)
 
+**[Xuan et al. (2026)](https://arxiv.org/abs/2605.15265)**
 ## 📖 Overview
 
 **LEAP** (distributed on PyPI as `lisa-leap`) is a Python toolkit for generating eccentric compact binary populations and computing their gravitational wave signals in the LISA band. It supports population synthesis, waveform computation, and signal analysis, including:
@@ -27,6 +29,24 @@
 * Compute the LISA detector response (Michelson signal) for a given GW waveform (via [**Functional API**](#leapwaveformcompute_lisa_response)). [Phys. Rev. D 67, 022001]
 * Evaluate characteristic strain ($h_c$) and stochastic backgrounds (via [**Class Method**](#compute_characteristic_strain) or [**Functional API**](#leapwaveformcompute_characteristic_strain_single)). [Phys. Rev. D 110, 023020]
 * Calculate signal-to-noise ratio (SNR) and noise-weighted inner products (via [**Class Method**](#compute_snr_analytical) or [**Functional API**](#leapwaveformcompute_snr_analytical)).
+
+---
+
+## 📝 Citation
+
+If you use **LEAP** in your research, please cite the following paper:
+
+```bibtex
+@article{Xuan_2026,
+      title={Eccentric Stellar-mass Binary Black Holes: Population, Detectability, and Waveform Analysis in the LISA and LIGO Era}, 
+      author={Zeyuan Xuan and Smadar Naoz and Kyle Kremer and Michael L. Katz and Bence Kocsis and Erez Michaely},
+      year={2026},
+      eprint={2605.15265},
+      archivePrefix={arXiv},
+      primaryClass={astro-ph.HE},
+      url={https://arxiv.org/abs/2605.15265}, 
+}
+```
 
 ---
 
