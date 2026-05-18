@@ -21,5 +21,10 @@ preferred-citation:
       given-names: "Bence"
     - family-names: "Michaely"
       given-names: "Erez"
-  journal: "In preparation"
+  journal: "arXiv preprint arXiv:2605.15265"
   year: 2026
+  url: "https://arxiv.org/abs/2605.15265"
+  identifiers:
+    - type: other
+      value: "arXiv:2605.15265"
+      description: "The arXiv preprint"
