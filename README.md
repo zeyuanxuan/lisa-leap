@@ -26,6 +26,7 @@
 * Generate PN-based, time-domain waveforms for eccentric binaries (via [**Class Method**](#compute_waveform) or [**Functional API**](#leapwaveformcompute_waveform)). [Phys. Rev. D 82, 024033]
 * Evolve orbital parameters throughout the inspiral stage (via [**Class Method**](#evolve_orbit) or [**Functional API**](#leapwaveformevolve_orbit)). [Peters 1964, Phys. Rev. 136, B1224]
 * Compute the LISA detector response (Michelson signal) for a given GW waveform (via [**Functional API**](#leapwaveformcompute_lisa_response)). [Phys. Rev. D 67, 022001]
+* Swap the detector noise curve used everywhere: built-in official LISA / N2A5 / ground-based **LIGO** ASD, or any custom `[f, ASD]` table (via [**Noise Management**](#5️⃣-noise-management)).
 * Evaluate characteristic strain ($h_c$) and stochastic backgrounds (via [**Class Method**](#compute_characteristic_strain) or [**Functional API**](#leapwaveformcompute_characteristic_strain_single)). [Phys. Rev. D 110, 023020]
 * Calculate signal-to-noise ratio (SNR) and noise-weighted inner products (via [**Class Method**](#compute_snr_analytical) or [**Functional API**](#leapwaveformcompute_snr_analytical)).
 
@@ -1491,18 +1492,23 @@ else:
 ---
 
 ### 5️⃣ Noise Management
-This module lets users customize the LISA sensitivity curve used across the package. It supports generating specific noise models (e.g., N2A5 with galactic foregrounds) and inspecting them as characteristic strain.
+This module lets users customize the detector sensitivity curve used across the package (by the SNR / characteristic-strain / inner-product routines). It ships three built-in models — the official LISA curve, the analytical N2A5 LISA curve, and a ground-based **LIGO** ASD — and also accepts arbitrary user-supplied `[f, ASD]` arrays.
+
+> **Note on how curves are swapped:** By default `update_noise_curve()` / `recover_noise_curve()` swap the curve **in memory** — nothing inside the package folder is written or moved, and the previous curve is kept in memory so it can be restored. This makes noise swaps safe when many processes (e.g. MPI ranks / cluster array jobs) import the same installation concurrently. The legacy file-based behaviour (rewrite `LISA_noise_ASD.csv` and leave backups on disk) is still available via `persist=True`, but should not be used from concurrent jobs.
+
+> **Note on conventions:** The response / sky-averaging factors inside the SNR routines are not changed when the curve is swapped, so the curve you inject should already be in the convention you want (e.g. the built-in LISA curves are sky-averaged sensitivities; `'LIGO'` is a single-detector strain ASD).
 
 ---
 
 #### `leap.Noise.generate_noise_data()`
-Generates synthetic noise amplitude-spectral-density (ASD) data on a specified frequency grid.
+Generates noise amplitude-spectral-density (ASD) data for one of the built-in models. Does **not** change the active curve — pass the result to `update_noise_curve()` for that.
 * **Input**:
     * `model` (str, optional): Noise model. Default `'official'`.
+        * `'official'`: Loads a tabulated ASD from `LISA_noise_ASD_official.csv` inside the package directory and interpolates onto the requested grid (log-log, with power-law extrapolation below the tabulated range). Returns zeros if the file is missing.
         * `'N2A5'`: Analytical LISA sensitivity including a specific realization of the galactic confusion-noise foreground.
-        * `'official'`: Loads a tabulated ASD from `LISA_noise_ASD_official.csv` inside the package directory and interpolates (log-log, with power-law extrapolation below the tabulated range). Returns zeros if the file is missing.
-    * `f_min`, `f_max` (float, optional): Frequency bounds [Hz]. Default `1e-6`, `1.0`.
-    * `n_points` (int, optional): Number of log-spaced frequency points. Default `3000`.
+        * `'LIGO'` (aliases `'ligo'`, `'ground'`): Ground-based detector ASD, read from `LIGO.txt` inside the package directory (two whitespace- or comma-separated columns: frequency [Hz], ASD [Hz$^{-1/2}$]; shipped table covers 10 Hz – 5 kHz). **Returned on the file's own frequency grid** — `f_min`, `f_max`, `n_points` are ignored, since the ground-based band has nothing to do with the LISA defaults. Set the environment variable `LEAP_LIGO_NOISE=/path/to/file.txt` to point this model at a different ground-based ASD file (same two-column format).
+    * `f_min`, `f_max` (float, optional): Frequency bounds [Hz] (LISA models only). Default `1e-6`, `1.0`.
+    * `n_points` (int, optional): Number of log-spaced frequency points (LISA models only). Default `3000`.
 * **Output**:
     * `f_new` (NumPy array): Frequency grid [Hz].
     * `asd_new` (NumPy array): ASD [Hz$^{-1/2}$].
@@ -1525,11 +1531,16 @@ plt.ylabel(r"Characteristic Strain $\sqrt{f S_n(f)}$", fontsize=12)
 plt.grid(True, which='both', linestyle='--', alpha=0.5)
 plt.legend()
 plt.show()
+
+# Ground-based curve (returned on the file's own grid, ~10 Hz - 5 kHz)
+f_ligo, asd_ligo = leap.Noise.generate_noise_data(model='LIGO')
+print(f"   LIGO grid: [{f_ligo[0]:.1e}, {f_ligo[-1]:.1e}] Hz, {len(f_ligo)} points")
 ```
 * **Output**:
     ```
    Generated Data: 3000 points.
    Freq Range: [1.0e-05, 1.0e+00] Hz
+   LIGO grid: [1.0e+01, 5.0e+03] Hz, 19960 points
     ```
 <p align="left">
 <img src="https://raw.githubusercontent.com/zeyuanxuan/lisa-leap/main/images/N2A5.png" width="500">
@@ -1538,36 +1549,47 @@ plt.show()
 ---
 
 #### `leap.Noise.update_noise_curve()`
-Overwrites the on-disk noise file (`LISA_noise_ASD.csv`) and re-injects the new curve into the downstream waveform/SNR modules. The previous curve is automatically backed up (with incrementing indices `_1`, `_2`, …).
+Makes a new curve the active one for all downstream waveform / SNR modules. Accepts either a built-in model name or a custom `[f, ASD]` pair. By default the swap happens in memory and the previous curve is remembered for `recover_noise_curve()`.
 * **Input**:
-    * `data` (list): `[frequency_array, asd_array]`.
+    * `data_list` (list or str):
+        * `[frequency_array, asd_array]`: a custom curve.
+        * `'official'` / `'N2A5'` / `'LIGO'`: load a built-in model directly (equivalent to `generate_noise_data(model)` followed by injection).
+    * `persist` (bool, optional): If `True`, use the legacy behaviour — overwrite `LISA_noise_ASD.csv` on disk and keep a backup with an incrementing index (`LISA_noise_ASD_original_1.csv`, `_2`, …). Default `False`. Do not use from concurrent jobs.
+    * `reload` (bool, optional): If `True`, also reload the backend modules before injecting (rarely needed). Default `False`.
 
 **Example:**
 ```python
-# Inject the new noise curve into the global system
+# Switch the whole package to the ground-based LIGO curve; every subsequent
+# SNR / inner-product / characteristic-strain call uses it until it is recovered
+leap.Noise.update_noise_curve('LIGO')
+
+# ... or inject an arbitrary custom curve
 leap.Noise.update_noise_curve([f_new, asd_new])
 ```
 
 ---
 
 #### `leap.Noise.recover_noise_curve()`
-Reverts the noise configuration to a previous backup or a standard preset.
+Undoes an `update_noise_curve()`, or loads a built-in preset.
 * **Input**:
-    * `version` (int or str):
-        * `int` (e.g., `1`): Reverts to a specific backup (e.g., `LISA_noise_ASD_original_1.csv`).
-        * `'official'`: Reverts to the shipped official LISA sensitivity curve (`LISA_noise_ASD_official.csv`).
-        * `'N2A5'`: Reverts to `LISA_noise_ASD_N2A5.csv`.
-        * `None`: Reverts to the most recent backup (`_1`).
+    * `version` (int, str or None, optional):
+        * If the current curve was swapped in memory (the default), the previous curve is simply put back and `version` is ignored.
+        * `'official'` / `'N2A5'` / `'LIGO'`: load that built-in model (in memory).
+        * `int` (e.g., `1`): legacy file-based restore from a specific backup (`LISA_noise_ASD_original_1.csv`); only relevant after `update_noise_curve(..., persist=True)`.
+        * `None`: legacy restore from the most recent backup (`_1`).
 
 **Example:**
 ```python
-leap.Noise.recover_noise_curve(version=1)
+leap.Noise.update_noise_curve('LIGO')
+# ... do ground-based calculations ...
+leap.Noise.recover_noise_curve()            # back to the previous (LISA) curve
+leap.Noise.recover_noise_curve('official')  # or explicitly load a preset
 ```
 
 ---
 
 #### `leap.Noise.get_noise_curve()`
-Retrieves the currently active noise data for inspection.
+Retrieves the currently active noise data for inspection. If a curve was swapped in memory, the in-memory curve (the one the SNR routines are actually using) is returned; otherwise the on-disk `LISA_noise_ASD.csv` is read.
 * **Input**:
     * `plot` (bool, optional): If `True`, plots the current characteristic strain $\sqrt{f S_n(f)}$.
 * **Output**:
@@ -1585,7 +1607,7 @@ curve_data = leap.Noise.get_noise_curve(plot=True)
 ---
 
 #### `leap.Noise.clean_backups()`
-Removes all temporary noise backup files (`LISA_noise_ASD_original_*.csv`) created during the session.
+Restores the package noise folder to its shipped state: removes stray files left behind by file-based swaps (`LISA_noise_ASD_original_*.csv` and similar) and rebuilds `LISA_noise_ASD.csv` from the official model if it went missing. Safe to call concurrently. Set the environment variable `LEAP_NOISE_NO_REPAIR=1` to disable this folder repair entirely.
 
 **Example:**
 ```python

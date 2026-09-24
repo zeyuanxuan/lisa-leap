@@ -170,7 +170,9 @@ def _try_load_lisa_noise():
                 'log_asd': log_asd,
                 'low_f_slope': low_f_slope,
                 'log_f_0': log_f[0],
-                'log_asd_0': log_asd[0]
+                'log_asd_0': log_asd[0],
+                'use_file': True   # required by dSNR2dt_numpy; without it the JIT kernels
+                                   # silently fall back to the analytical noise model
             }
             #print(f"[Info] Successfully loaded LISA noise file: {file_path}")
         else:
