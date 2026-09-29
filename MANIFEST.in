@@ -1,6 +1,7 @@
 recursive-include leap *.npy
 recursive-include leap *.csv
 recursive-include leap *.npz
+recursive-include leap *.txt
 
 recursive-include LISAeccentric *.py
 

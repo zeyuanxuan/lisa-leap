@@ -1,1 +1,5 @@
 ﻿__pycache__/
+dist/
+*.egg-info/
+Claude outputs/
+0.0.1
