@@ -38,14 +38,20 @@ If you use **LEAP** in your research, please cite the following paper:
 
 ```bibtex
 @article{Xuan_2026,
-      title={Eccentric Stellar-mass Binary Black Holes: Population, Detectability, and Waveform Analysis in the LISA and LIGO Era}, 
-      author={Zeyuan Xuan and Smadar Naoz and Kyle Kremer and Michael L. Katz and Bence Kocsis and Erez Michaely},
-      year={2026},
-      eprint={2605.15265},
-      archivePrefix={arXiv},
-      primaryClass={astro-ph.HE},
-      url={https://arxiv.org/abs/2605.15265}, 
+  title = {Eccentric stellar-mass binary black holes: Population, detectability, and waveform analysis in the LISA and LIGO era},
+  author = {Xuan, Zeyuan and Naoz, Smadar and Kremer, Kyle and Katz, Michael L. and Kocsis, Bence and Michaely, Erez},
+  journal = {Phys. Rev. D},
+  volume = {114},
+  issue = {6},
+  pages = {063036},
+  numpages = {28},
+  year = {2026},
+  month = {Sep},
+  publisher = {American Physical Society},
+  doi = {10.1103/c654-vx1w},
+  url = {https://link.aps.org/doi/10.1103/c654-vx1w}
 }
+
 ```
 
 ---
