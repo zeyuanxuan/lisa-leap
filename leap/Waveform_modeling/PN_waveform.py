@@ -1442,12 +1442,13 @@ def eccGW_waveform0(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN
         if PN_reaction >= 1.5:
             xdot += np.power(x, 13 / 2) * 256 / 5 * smr * pi * kappaE(e)
         if PN_reaction >= 2:
+            # Zeyuan: 2PN x-dot e^4 terms fixed (Hinder+2010 eq. A29 typo): 16650606060 -> 166506060 nu^2, and the missing sqrt(1-e^2)(66316320-26526528 nu) e^4 added; checked against Moore+2016 App. B and Huerta+2017 eq. A5.
             xdot += np.power(x, 7.0) * smr / (45360 * np.power(1 - e * e, 11 / 2)) * (
                     (1964256 * smr * smr - 3259980 * smr + 3523113) * np.power(e, 8.0) + (
                     64828848 * smr * smr - 123108426 * smr + 83424402) * np.power(e, 6.0) + (
-                            16650606060 * smr * smr - 207204264 * smr + 783768) * np.power(e, 4.0) + (
+                            166506060 * smr * smr - 207204264 * smr + 783768) * np.power(e, 4.0) + (
                             61282032 * smr * smr + 15464736 * smr - 92846560) * e * e + 1903104 * smr * smr + np.sqrt(
-                1 - e * e) * ((2646000 - 1058400 * smr) * np.power(e, 6.0) + (
+                1 - e * e) * ((2646000 - 1058400 * smr) * np.power(e, 6.0) + (66316320 - 26526528 * smr) * np.power(e, 4.0) + (
                     64532160 - 25812864 * smr) * e * e - 580608 * smr + 1451520) + 4514976 * smr - 360224)
         xdot = xdot / M
         edot = np.power(x, 4.0) * (-e * (121 * e * e + 304) * smr / (15 * np.power(1 - e * e, 5 / 2)))
@@ -1501,12 +1502,13 @@ def eccGW_waveform0(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN
                 1330 * smr - 731) * e * e - 16 * (924 * smr + 743))
         if PN_reaction >= 1.5: xdot += np.power(x, 13 / 2) * 256 / 5 * smr * pi * kappaE(e)
         if PN_reaction >= 2:
+            # Zeyuan: 2PN x-dot e^4 terms fixed (Hinder+2010 eq. A29 typo): 16650606060 -> 166506060 nu^2, and the missing sqrt(1-e^2)(66316320-26526528 nu) e^4 added; checked against Moore+2016 App. B and Huerta+2017 eq. A5.
             xdot += np.power(x, 7.0) * smr / (45360 * np.power(1 - e * e, 11 / 2)) * (
                     (1964256 * smr * smr - 3259980 * smr + 3523113) * np.power(e, 8.0) + (
                     64828848 * smr * smr - 123108426 * smr + 83424402) * np.power(e, 6.0) + (
-                            16650606060 * smr * smr - 207204264 * smr + 783768) * np.power(e, 4.0) + (
+                            166506060 * smr * smr - 207204264 * smr + 783768) * np.power(e, 4.0) + (
                             61282032 * smr * smr + 15464736 * smr - 92846560) * e * e + 1903104 * smr * smr + np.sqrt(
-                1 - e * e) * ((2646000 - 1058400 * smr) * np.power(e, 6.0) + (
+                1 - e * e) * ((2646000 - 1058400 * smr) * np.power(e, 6.0) + (66316320 - 26526528 * smr) * np.power(e, 4.0) + (
                     64532160 - 25812864 * smr) * e * e - 580608 * smr + 1451520) + 4514976 * smr - 360224)
         return xdot / M
 
@@ -1884,11 +1886,12 @@ def eccGW_waveform(f00, e0, timescale, m1, m2, theta, phi, R, l0=0, ts=None, PN_
                 xdot += np.power(x, 6.5) * 256 / 5 * smr * pi * kappaE(e)
 
             if PN_reaction >= 2:
+                # Zeyuan: 2PN x-dot e^4 terms fixed (Hinder+2010 eq. A29 typo): 16650606060 -> 166506060 nu^2, and the missing sqrt(1-e^2)(66316320-26526528 nu) e^4 added; checked against Moore+2016 App. B and Huerta+2017 eq. A5.
                 term_2pn = (1964256 * smr * smr - 3259980 * smr + 3523113) * np.power(e, 8.0) + \
                            (64828848 * smr * smr - 123108426 * smr + 83424402) * np.power(e, 6.0) + \
-                           (16650606060 * smr * smr - 207204264 * smr + 783768) * np.power(e, 4.0) + \
+                           (166506060 * smr * smr - 207204264 * smr + 783768) * np.power(e, 4.0) + \
                            (61282032 * smr * smr + 15464736 * smr - 92846560) * e * e + 1903104 * smr * smr + \
-                           np.sqrt(one_minus_e2) * ((2646000 - 1058400 * smr) * np.power(e, 6.0) + (
+                           np.sqrt(one_minus_e2) * ((2646000 - 1058400 * smr) * np.power(e, 6.0) + (66316320 - 26526528 * smr) * np.power(e, 4.0) + (
                             64532160 - 25812864 * smr) * e * e - 580608 * smr + 1451520) + \
                            4514976 * smr - 360224
                 xdot += np.power(x, 7.0) * smr / (45360 * np.power(one_minus_e2, 5.5)) * term_2pn
@@ -2905,11 +2908,12 @@ def ecc_orbit_evolution0(f00, e0, timescale, m1, m2,
         if PN_reaction >= 1.5:
             xdot += np.power(x, 6.5) * 256 / 5 * smr * pi * kappaE(e)
         if PN_reaction >= 2:
+            # Zeyuan: 2PN x-dot e^4 terms fixed (Hinder+2010 eq. A29 typo): 16650606060 -> 166506060 nu^2, and the missing sqrt(1-e^2)(66316320-26526528 nu) e^4 added; checked against Moore+2016 App. B and Huerta+2017 eq. A5.
             term_2pn = (1964256 * smr * smr - 3259980 * smr + 3523113) * np.power(e, 8.0) + \
                        (64828848 * smr * smr - 123108426 * smr + 83424402) * np.power(e, 6.0) + \
-                       (16650606060 * smr * smr - 207204264 * smr + 783768) * np.power(e, 4.0) + \
+                       (166506060 * smr * smr - 207204264 * smr + 783768) * np.power(e, 4.0) + \
                        (61282032 * smr * smr + 15464736 * smr - 92846560) * e * e + 1903104 * smr * smr + \
-                       np.sqrt(one_minus_e2) * ((2646000 - 1058400 * smr) * np.power(e, 6.0) + (
+                       np.sqrt(one_minus_e2) * ((2646000 - 1058400 * smr) * np.power(e, 6.0) + (66316320 - 26526528 * smr) * np.power(e, 4.0) + (
                            64532160 - 25812864 * smr) * e * e - 580608 * smr + 1451520) + \
                        4514976 * smr - 360224
             xdot += np.power(x, 7.0) * smr / (45360 * np.power(one_minus_e2, 5.5)) * term_2pn
@@ -3101,11 +3105,12 @@ def ecc_orbit_evolution(f00, e0, timescale, m1, m2,
         if PN_reaction >= 1.5:
             xdot += np.power(x, 6.5) * 256 / 5 * smr * pi * kappaE(e)
         if PN_reaction >= 2:
+            # Zeyuan: 2PN x-dot e^4 terms fixed (Hinder+2010 eq. A29 typo): 16650606060 -> 166506060 nu^2, and the missing sqrt(1-e^2)(66316320-26526528 nu) e^4 added; checked against Moore+2016 App. B and Huerta+2017 eq. A5.
             term_2pn = (1964256 * smr * smr - 3259980 * smr + 3523113) * np.power(e, 8.0) + \
                        (64828848 * smr * smr - 123108426 * smr + 83424402) * np.power(e, 6.0) + \
-                       (16650606060 * smr * smr - 207204264 * smr + 783768) * np.power(e, 4.0) + \
+                       (166506060 * smr * smr - 207204264 * smr + 783768) * np.power(e, 4.0) + \
                        (61282032 * smr * smr + 15464736 * smr - 92846560) * e * e + 1903104 * smr * smr + \
-                       np.sqrt(one_minus_e2) * ((2646000 - 1058400 * smr) * np.power(e, 6.0) + (
+                       np.sqrt(one_minus_e2) * ((2646000 - 1058400 * smr) * np.power(e, 6.0) + (66316320 - 26526528 * smr) * np.power(e, 4.0) + (
                     64532160 - 25812864 * smr) * e * e - 580608 * smr + 1451520) + \
                        4514976 * smr - 360224
             xdot += np.power(x, 7.0) * smr / (45360 * np.power(one_minus_e2, 5.5)) * term_2pn
